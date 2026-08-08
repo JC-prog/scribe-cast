@@ -3,8 +3,9 @@ import subprocess
 from pathlib import Path
 
 from app.core.errors import AudioExtractionError
+from app.logging_config import get_logger, log_event
 
-logger = logging.getLogger("scribecast.audio_extractor")
+logger = get_logger("scribecast.audio_extractor")
 
 
 def extract_audio(input_path: Path, output_path: Path) -> None:
@@ -29,7 +30,13 @@ def extract_audio(input_path: Path, output_path: Path) -> None:
     result = subprocess.run(command, capture_output=True, text=True)
 
     if result.returncode != 0:
-        logger.error("event=audio_extraction_failed input=%s stderr=%s", input_path, result.stderr)
+        log_event(
+            logger,
+            "audio_extraction_failed",
+            level=logging.ERROR,
+            input_path=str(input_path),
+            stderr=result.stderr,
+        )
         raise AudioExtractionError(
             f"ffmpeg failed extracting audio from {input_path} (exit {result.returncode}): {result.stderr}"
         )

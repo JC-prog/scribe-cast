@@ -7,9 +7,10 @@ from faster_whisper import WhisperModel
 
 from app.config import settings
 from app.core.device import DeviceRequest, resolve_device
+from app.logging_config import get_logger, log_event
 from app.utils.timing import Stopwatch
 
-logger = logging.getLogger("scribecast.model_manager")
+logger = get_logger("scribecast.model_manager")
 
 CacheKey = tuple[str, str, str]  # (model_size, device, compute_type)
 
@@ -64,13 +65,14 @@ class ModelManager:
             while len(self._cache) > self._max_cached_models:
                 self._cache.popitem(last=False)
 
-            logger.info(
-                "event=model_load model=%s device=%s compute_type=%s duration_ms=%.1f fallback=%s",
-                model_size,
-                resolution.device,
-                resolution.compute_type,
-                stopwatch.elapsed_ms,
-                resolution.fallback_occurred,
+            log_event(
+                logger,
+                "model_load",
+                model=model_size,
+                device=resolution.device,
+                compute_type=resolution.compute_type,
+                duration_ms=round(stopwatch.elapsed_ms, 1),
+                fallback_occurred=resolution.fallback_occurred,
             )
 
             return model, {
@@ -92,12 +94,12 @@ class ModelManager:
                 error=None,
             )
         except (RuntimeError, OSError, ValueError) as exc:
-            logger.error("event=model_load_failed model=%s error=%s", model_size, exc)
+            log_event(logger, "model_load_failed", level=logging.ERROR, model=model_size, error=str(exc))
             return ValidationResult(
                 ok=False, device_used=None, fallback_occurred=False, load_time_ms=None, error=str(exc)
             )
         except Exception as exc:  # noqa: BLE001 - validate() must never raise
-            logger.error("event=model_load_failed model=%s error=%s", model_size, exc)
+            log_event(logger, "model_load_failed", level=logging.ERROR, model=model_size, error=str(exc))
             return ValidationResult(
                 ok=False, device_used=None, fallback_occurred=False, load_time_ms=None, error=str(exc)
             )

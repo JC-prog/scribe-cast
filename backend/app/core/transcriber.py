@@ -1,11 +1,11 @@
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 
 from app.core.srt_writer import SubtitleSegment
+from app.logging_config import get_logger, log_event
 from app.utils.timing import Stopwatch
 
-logger = logging.getLogger("scribecast.transcriber")
+logger = get_logger("scribecast.transcriber")
 
 
 @dataclass
@@ -27,12 +27,13 @@ def transcribe(model, audio_path: Path, language: str | None) -> TranscriptionRe
             SubtitleSegment(start=segment.start, end=segment.end, text=segment.text) for segment in segment_iter
         ]
 
-    logger.info(
-        "event=transcription_complete audio=%s detected_language=%s segments=%d duration_ms=%.1f",
-        audio_path,
-        info.language,
-        len(segments),
-        stopwatch.elapsed_ms,
+    log_event(
+        logger,
+        "transcription_complete",
+        audio_path=str(audio_path),
+        detected_language=info.language,
+        segments=len(segments),
+        duration_ms=round(stopwatch.elapsed_ms, 1),
     )
 
     return TranscriptionResult(segments=segments, detected_language=info.language, elapsed_ms=stopwatch.elapsed_ms)

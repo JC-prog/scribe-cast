@@ -1,4 +1,3 @@
-import logging
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,9 +8,10 @@ from app.core.device import DeviceRequest
 from app.core.model_manager import ModelManager
 from app.core.srt_writer import write_srt
 from app.core.transcriber import transcribe
+from app.logging_config import get_logger, log_event
 from app.utils.timing import Stopwatch
 
-logger = logging.getLogger("scribecast.pipeline")
+logger = get_logger("scribecast.pipeline")
 
 StageCallback = Callable[[str, dict], None]
 
@@ -84,11 +84,12 @@ def run_transcription_pipeline(
         )
 
         on_stage_change("completed", {"timings_ms": timings_ms, "detected_language": transcription.detected_language})
-        logger.info(
-            "event=pipeline_complete source=%s output=%s timings_ms=%s",
-            source_video_path,
-            output_srt_path,
-            timings_ms,
+        log_event(
+            logger,
+            "pipeline_complete",
+            source=str(source_video_path),
+            output=str(output_srt_path),
+            timings_ms=timings_ms,
         )
         return result
     finally:
