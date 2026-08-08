@@ -1,3 +1,11 @@
 -r requirements-base.txt
 faster-whisper==1.1.0
 ctranslate2==4.5.0
+# ctranslate2 4.5.0 still imports pkg_resources at module load time; recent
+# setuptools releases are dropping it, so pin below that until ctranslate2
+# drops the dependency.
+setuptools<81
+# faster-whisper's utils module imports requests directly but doesn't declare
+# it, relying on a transitive pull from huggingface-hub that newer
+# huggingface-hub releases no longer provide. Pin explicitly.
+requests==2.32.3
