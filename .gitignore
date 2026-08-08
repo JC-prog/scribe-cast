@@ -230,3 +230,7 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 
+# Docs site (built output + throwaway venv created by scripts/docs.*)
+site/
+.docs-venv/
+
