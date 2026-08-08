@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from app.core.errors import FolderNotFoundError
-from app.core.folder_scanner import scan_folder
+from app.core.errors import FolderNotFoundError, InvalidPathError
+from app.core.folder_scanner import resolve_selected_videos, scan_folder
 
 
 def _touch(path, content=b"fake"):
@@ -55,3 +55,33 @@ def test_scan_folder_sorted_by_relative_path(tmp_path):
 
     results = scan_folder(tmp_path)
     assert [str(v.relative_path) for v in results] == ["a_video.mp4", "b_video.mp4"]
+
+
+def test_resolve_selected_videos_accepts_paths_inside_root(tmp_path):
+    video_path = tmp_path / "sub" / "video.mp4"
+    _touch(video_path)
+
+    resolved = resolve_selected_videos(tmp_path, [str(video_path)])
+
+    assert resolved == [video_path.resolve()]
+
+
+def test_resolve_selected_videos_rejects_path_outside_root(tmp_path):
+    outside_dir = tmp_path.parent / "outside_scan_test"
+    outside_video = outside_dir / "video.mp4"
+    _touch(outside_video)
+    root = tmp_path / "root"
+    root.mkdir()
+
+    try:
+        with pytest.raises(InvalidPathError):
+            resolve_selected_videos(root, [str(outside_video)])
+    finally:
+        import shutil
+
+        shutil.rmtree(outside_dir, ignore_errors=True)
+
+
+def test_resolve_selected_videos_rejects_missing_file(tmp_path):
+    with pytest.raises(InvalidPathError):
+        resolve_selected_videos(tmp_path, [str(tmp_path / "does_not_exist.mp4")])

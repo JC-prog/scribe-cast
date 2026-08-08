@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import ALLOWED_VIDEO_EXTENSIONS
-from app.core.errors import FolderNotFoundError
+from app.core.errors import FolderNotFoundError, InvalidPathError
 from app.core.paths import has_existing_subtitle
 
 
@@ -48,3 +48,23 @@ def scan_folder(root: Path) -> list[DiscoveredVideo]:
 
     discovered.sort(key=lambda video: str(video.relative_path))
     return discovered
+
+
+def resolve_selected_videos(root: Path, requested_paths: list[str]) -> list[Path]:
+    """
+    Defends /api/folder/transcribe against stale UI state or a tampered
+    request pointing outside the scanned root: each path must resolve to
+    somewhere inside `root` and must still exist.
+    """
+    resolved_root = root.resolve()
+    resolved: list[Path] = []
+
+    for raw_path in requested_paths:
+        candidate = Path(raw_path).resolve()
+        if resolved_root not in candidate.parents and candidate != resolved_root:
+            raise InvalidPathError(f"Path is outside the scanned folder: {raw_path}")
+        if not candidate.is_file():
+            raise InvalidPathError(f"Video no longer exists: {raw_path}")
+        resolved.append(candidate)
+
+    return resolved

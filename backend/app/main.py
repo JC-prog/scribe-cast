@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import languages, models
+from app.api.routes import download, folder, jobs, languages, models, upload
 from app.config import settings
 from app.core.errors import AudioExtractionError, FolderNotFoundError, InvalidPathError, ModelLoadError
 from app.logging_config import setup_logging
@@ -22,6 +22,10 @@ def create_app() -> FastAPI:
 
     app.include_router(models.router)
     app.include_router(languages.router)
+    app.include_router(upload.router)
+    app.include_router(folder.router)
+    app.include_router(jobs.router)
+    app.include_router(download.router)
 
     @app.exception_handler(FolderNotFoundError)
     @app.exception_handler(InvalidPathError)
