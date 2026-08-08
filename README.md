@@ -1,14 +1,23 @@
 # scribe-cast
 
-Local-first video transcription. Upload a video (or point at a folder) and get back an `.srt` subtitle file, transcribed with [faster-whisper](https://github.com/SYSTRAN/faster-whisper).
+![Version](https://img.shields.io/badge/version-0.1.0-7c3aed)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Python](https://img.shields.io/badge/python-3.11-blue)
+![Node](https://img.shields.io/badge/node-22-green)
+
+Local-first video transcription. Upload a video (or point at a folder) and get back an `.srt` subtitle file, transcribed with [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Everything runs on your own machine via Docker — video never leaves your host.
+
+**Full documentation:** [`docs/`](docs/index.md) (browse on GitHub, or run `scripts/docs.sh serve` / `scripts\docs.ps1 serve` for the built [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) site at `http://localhost:8000`).
 
 ## Features
 
-- **Single upload** — upload a video, download the generated `.srt` when it's done. The completion overlay shows how long transcription took.
-- **Folder batch** — point at a folder; scribe-cast searches it plus one level of subfolders for videos, lets you pick which ones, and writes each `.srt` next to its source video.
-- **Model & language selection** — pick a Whisper model size and target language (or auto-detect) per job. Before running a job, scribe-cast tries to load the model and warns you if it can't.
-- **CPU/GPU portable** — the same worker image runs on a CPU-only host or a CUDA host; if a GPU is requested but unavailable, it falls back to CPU automatically and tells you.
-- **Observability** — structured JSON logs in `logs/` (model load latency, transcription duration, errors), separate from container stdout.
+- **Single upload** — upload a video, download the generated `.srt`; a completion overlay shows how long transcription took.
+- **Folder batch** — point at a folder, pick which discovered videos to process, get an `.srt` next to each source video.
+- **Model & language selection** — per job, with a pre-flight check that a chosen model can actually load before committing to the job.
+- **CPU/GPU portable** — the same worker image runs on a CPU-only host or a CUDA host; a requested-but-unavailable GPU falls back to CPU automatically, with a visible warning.
+- **Observability** — structured JSON logs in `logs/` for model latency, transcription duration, and errors.
+
+See [`docs/features.md`](docs/features.md) for detail on each.
 
 ## Architecture
 
@@ -22,77 +31,53 @@ frontend (React/Vite, served by nginx) ──/api/*──▶ api (FastAPI)
                                                     worker (RQ) ──▶ ffmpeg ──▶ faster-whisper ──▶ .srt
 ```
 
-- **api** never imports the ML stack (faster-whisper/ctranslate2) — routes enqueue jobs by name, so the API container stays lightweight regardless of device.
-- **worker** runs as a single non-forking process so a loaded Whisper model stays cached in memory across jobs instead of reloading per request.
-- Audio is extracted from the video (ffmpeg, 16kHz mono) before transcription — smaller intermediate files, and it decouples video-codec handling from the ASR step.
+The `api` container never imports the ML stack; the `worker` container does the real work and is the only place a GPU is used, when one's available. See [`docs/architecture.md`](docs/architecture.md) for the full design, especially the [CPU/GPU portability](docs/architecture.md#cpugpu-portability) section — it's the design constraint most of this repo's structure is built around.
 
-## Prerequisites
-
-- Docker Desktop (with Compose v2)
-- **GPU host only:** an NVIDIA driver + [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed on the host
-
-## Running it
+## Quick start
 
 ```bash
 cp .env.example .env
-# edit .env: set DATA_DIR to the folder you want available for folder-batch jobs
-mkdir -p data   # or point DATA_DIR at an existing folder of videos
-
-# CPU-only host:
-docker compose up -d --build
-
-# CUDA host (this repo's primary target):
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+# edit .env — set DATA_DIR to the folder you want available for folder-batch jobs
 ```
 
-Then open http://localhost:5173.
+Then, on a CPU-only host:
 
-Folder-batch paths are entered as they appear **inside the container**, under `/data/...` — that's where your host's `DATA_DIR` is bind-mounted. E.g. if `DATA_DIR=D:\Videos` and you have `D:\Videos\learning\lecture1.mp4`, scan `/data` or `/data/learning` in the UI; the `.srt` is written back to `D:\Videos\learning\lecture1.srt` on the host.
+```bash
+scripts/stack.sh up        # or: scripts\stack.ps1 up
+```
 
-Logs land in `./logs/` (`api.log`, `worker.log`, `errors.log`) as JSON lines, bind-mounted from both containers.
+or on a CUDA host:
+
+```bash
+scripts/stack.sh up --gpu  # or: scripts\stack.ps1 up -Gpu
+```
+
+Open [http://localhost:5173](http://localhost:5173). See [`docs/getting-started.md`](docs/getting-started.md) for prerequisites and the `/data/...` path-mapping caveat for folder-batch jobs.
+
+## Scripts
+
+| Script | Does |
+|---|---|
+| `scripts/setup-dev.{sh,ps1}` | Bootstrap a local dev environment: `.env`, backend venv + deps, frontend deps |
+| `scripts/build.{sh,ps1}` | Build the Docker images (`--gpu`/`-Gpu` to layer the GPU override) |
+| `scripts/stack.{sh,ps1}` | `up` / `down` / `logs` for the Compose stack (`--gpu`/`-Gpu` supported) |
+| `scripts/test.{sh,ps1}` | Run the backend pytest suite (`--e2e`/`-E2e` for the frontend Playwright suite instead) |
+| `scripts/docs.{sh,ps1}` | `serve` / `build` this documentation site |
 
 ## Development
 
-### Backend
-
 ```bash
-cd backend
-python -m venv .venv
-./.venv/Scripts/pip install -r requirements-dev.txt   # includes faster-whisper/ctranslate2 for mocking in tests
-./.venv/Scripts/python -m pytest
+scripts/setup-dev.sh   # or scripts\setup-dev.ps1
+scripts/test.sh         # backend unit tests
+cd frontend && npm run dev
 ```
 
-Tests are hermetic — no real Redis, ffmpeg, or model download/inference required (external calls are mocked; API tests use `fakeredis`).
+See [`docs/development.md`](docs/development.md) for the full project layout, e2e test setup, and conventions.
 
-To run the API and worker outside Docker, you need a local Redis and ffmpeg on PATH:
+## Changelog
 
-```bash
-uvicorn app.main:app --reload           # from backend/, api process
-python -m app.worker.rq_worker          # from backend/, worker process
-```
+See [`CHANGELOG.md`](CHANGELOG.md).
 
-### Frontend
+## License
 
-```bash
-cd frontend
-npm install
-npm run dev   # proxies /api/* to localhost:8000, see vite.config.ts
-```
-
-### End-to-end tests
-
-Needs a live stack (real Redis/api/worker — either `docker compose up` or `npm run dev` against a locally running backend), since it exercises real model loading and ffmpeg, not mocks:
-
-```bash
-cd frontend
-npm run test:e2e:install   # first time only, installs the Playwright browser
-npm run test:e2e
-```
-
-## Configuration (`.env`)
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `DATA_DIR` | `./data` | Host folder bind-mounted to `/data` in the api/worker containers, for folder-batch jobs |
-| `DEVICE` | `auto` | `auto` \| `cuda` \| `cpu`. `docker-compose.gpu.yml` overrides this to `cuda`. `auto`/`cuda` fall back to CPU with a logged warning if no GPU is actually available |
-| `COMPUTE_TYPE` | *(unset)* | Overrides the device-appropriate default (`float16` on GPU, `int8` on CPU) — e.g. `int8_float16` |
+[MIT](LICENSE)
