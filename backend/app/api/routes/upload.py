@@ -7,11 +7,13 @@ from app.api.deps import get_queue
 from app.config import settings
 from app.core.languages import resolve_language
 from app.core.model_catalog import is_valid_model_size
+from app.logging_config import get_logger, log_event
 from app.schemas.jobs import UploadResponse
 from app.utils.ids import new_id
 from app.worker.task_names import TASK_TRANSCRIBE_UPLOAD
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
+logger = get_logger("scribecast.api.upload")
 
 _CHUNK_SIZE = 1024 * 1024
 
@@ -39,4 +41,5 @@ async def upload_video(
             out_file.write(chunk)
 
     job = queue.enqueue(TASK_TRANSCRIBE_UPLOAD, str(upload_path), file.filename, model_size, resolved_language)
+    log_event(logger, "upload_enqueued", job_id=job.id, source_filename=file.filename, model=model_size)
     return UploadResponse(job_id=job.id)

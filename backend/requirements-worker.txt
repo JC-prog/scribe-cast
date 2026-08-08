@@ -1,10 +1,11 @@
 -r requirements-base.txt
 faster-whisper==1.1.0
-ctranslate2==4.5.0
-# ctranslate2 4.5.0 still imports pkg_resources at module load time; recent
-# setuptools releases are dropping it, so pin below that until ctranslate2
-# drops the dependency.
-setuptools<81
+# ctranslate2 4.5.0's manylinux wheel fails to load on some newer kernels
+# ("cannot enable executable stack ... Invalid argument" from libctranslate2.so);
+# 4.8.1 is a known-working version that doesn't hit this. Also as of this
+# version ctranslate2 no longer imports the now-deprecated pkg_resources at
+# module load time (an issue on 4.5.0).
+ctranslate2==4.8.1
 # faster-whisper's utils module imports requests directly but doesn't declare
 # it, relying on a transitive pull from huggingface-hub that newer
 # huggingface-hub releases no longer provide. Pin explicitly.

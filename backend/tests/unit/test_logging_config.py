@@ -1,6 +1,8 @@
 import json
 import logging
 
+import pytest
+
 from app import logging_config as logging_config_module
 from app.config import settings
 from app.logging_config import get_logger, log_event, setup_logging
@@ -58,3 +60,10 @@ def test_setup_logging_is_idempotent(tmp_path, monkeypatch):
     assert handler_count_after_first == handler_count_after_second
 
     _reset_logging_state()
+
+
+def test_log_event_rejects_field_colliding_with_logrecord_attribute():
+    logger = get_logger("scribecast.test.collision")
+
+    with pytest.raises(ValueError, match="filename"):
+        log_event(logger, "upload_enqueued", filename="video.mp4")

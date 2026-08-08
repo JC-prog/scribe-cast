@@ -67,6 +67,19 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
+# LogRecord's own attribute names (filename, module, msg, ...) — passing a
+# field with one of these names as `extra` raises KeyError deep inside the
+# logging module, so callers get a clear rename hint instead of that crash.
+_RESERVED_LOGRECORD_FIELDS = {
+    "name", "msg", "args", "levelname", "levelno", "pathname", "filename", "module",
+    "exc_info", "exc_text", "stack_info", "lineno", "funcName", "created", "msecs",
+    "relativeCreated", "thread", "threadName", "processName", "process", "message", "asctime",
+}
+
+
 def log_event(logger: logging.Logger, event: str, level: int = logging.INFO, **fields) -> None:
     """Keeps structured field names consistent across call sites (job_id, model, stage, duration_ms, ...)."""
+    collisions = _RESERVED_LOGRECORD_FIELDS & fields.keys()
+    if collisions:
+        raise ValueError(f"log_event field(s) collide with reserved LogRecord attributes: {collisions}")
     logger.log(level, event, extra=fields)

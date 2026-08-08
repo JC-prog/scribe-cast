@@ -1,0 +1,16 @@
+# GPU override, used only on the CUDA host:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+# Requires an NVIDIA driver + nvidia-container-toolkit on the host. No
+# separate image/Dockerfile — this only changes runtime device access and
+# the DEVICE env var read by app/core/device.py.
+services:
+  worker:
+    environment:
+      DEVICE: cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]

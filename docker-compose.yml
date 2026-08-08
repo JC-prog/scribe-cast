@@ -1,0 +1,57 @@
+# Base compose file: CPU-safe, runs anywhere Docker runs (no GPU required).
+# On the CUDA host, layer docker-compose.gpu.yml on top:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no"]
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+      target: api
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./logs:/app/logs
+      - uploads_data:/app/uploads
+      - results_data:/app/results
+      - ${DATA_DIR:-./data}:/data
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+      target: worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DEVICE: ${DEVICE:-auto}
+      COMPUTE_TYPE: ${COMPUTE_TYPE:-}
+    volumes:
+      - ./logs:/app/logs
+      - uploads_data:/app/uploads
+      - results_data:/app/results
+      - model_cache:/app/model_cache
+      - ${DATA_DIR:-./data}:/data
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  uploads_data:
+  results_data:
+  model_cache:
