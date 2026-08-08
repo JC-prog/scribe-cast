@@ -10,8 +10,11 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>scribe-cast</h1>
-        <p className="app-subtitle">Local-first video transcription</p>
+        <div className="app-mark">SC</div>
+        <div className="app-title">
+          <h1>scribe-cast</h1>
+          <p className="app-subtitle">Local-first video transcription</p>
+        </div>
       </header>
 
       <nav className="tabs">

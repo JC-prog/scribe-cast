@@ -18,7 +18,12 @@ export function FolderPathInput({ value, onChange, onScan, scanning, disabled }:
           placeholder="/data/your-folder"
           disabled={disabled}
         />
-        <button type="button" onClick={onScan} disabled={disabled || scanning || !value.trim()}>
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={onScan}
+          disabled={disabled || scanning || !value.trim()}
+        >
           {scanning ? 'Scanning…' : 'Scan'}
         </button>
       </div>

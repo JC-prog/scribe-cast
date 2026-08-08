@@ -35,6 +35,21 @@ export function FileDropzone({ file, onFileSelected, disabled }: Props) {
         disabled={disabled}
         onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
       />
+      <svg
+        className="dropzone-icon"
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M12 16V4" />
+        <path d="M6.5 9.5 12 4l5.5 5.5" />
+        <path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16" />
+      </svg>
       {file ? (
         <div>
           <strong>{file.name}</strong>

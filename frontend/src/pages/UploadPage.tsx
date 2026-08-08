@@ -73,45 +73,66 @@ export function UploadPage() {
 
   return (
     <div className="page">
-      <h2>Upload a video</h2>
-      <FileDropzone file={file} onFileSelected={handleFileSelected} disabled={busy} />
+      <section className="panel">
+        <div className="panel-header">
+          <h2>Upload a video</h2>
+        </div>
+        <div className="panel-body">
+          <FileDropzone file={file} onFileSelected={handleFileSelected} disabled={busy} />
 
-      <div className="field-row">
-        <ModelSelector models={models} value={modelSize} onChange={setModelSize} disabled={busy || modelsLoading} />
-        <LanguageSelector
-          languages={languages}
-          value={language}
-          onChange={setLanguage}
-          disabled={busy || languagesLoading}
-        />
-      </div>
+          <div className="field-row">
+            <ModelSelector
+              models={models}
+              value={modelSize}
+              onChange={setModelSize}
+              disabled={busy || modelsLoading}
+            />
+            <LanguageSelector
+              languages={languages}
+              value={language}
+              onChange={setLanguage}
+              disabled={busy || languagesLoading}
+            />
+          </div>
 
-      {validationResult && !validationResult.ok && (
-        <ModelLoadWarningBanner
-          variant="error"
-          message={`Could not load model: ${validationResult.error ?? 'unknown error'}`}
-        />
+          {validationResult && !validationResult.ok && (
+            <ModelLoadWarningBanner
+              variant="error"
+              message={`Could not load model: ${validationResult.error ?? 'unknown error'}`}
+            />
+          )}
+          {validationResult?.ok && validationResult.fallbackOccurred && (
+            <ModelLoadWarningBanner
+              variant="warning"
+              message="GPU requested but not available — running on CPU, transcription will be slower."
+            />
+          )}
+          {(validationError || uploadError) && (
+            <ModelLoadWarningBanner variant="error" message={validationError ?? uploadError ?? ''} />
+          )}
+        </div>
+        <div className="panel-footer">
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={handleTranscribeClick}
+            disabled={!file || !modelSize || busy}
+          >
+            {validating ? 'Checking model…' : jobInFlight ? 'Transcribing…' : 'Transcribe'}
+          </button>
+        </div>
+      </section>
+
+      {uploadJobId && !showOverlay && (
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Status</h2>
+          </div>
+          <div className="panel-body">
+            <JobProgress job={job} />
+          </div>
+        </section>
       )}
-      {validationResult?.ok && validationResult.fallbackOccurred && (
-        <ModelLoadWarningBanner
-          variant="warning"
-          message="GPU requested but not available — running on CPU, transcription will be slower."
-        />
-      )}
-      {(validationError || uploadError) && (
-        <ModelLoadWarningBanner variant="error" message={validationError ?? uploadError ?? ''} />
-      )}
-
-      <button
-        type="button"
-        className="button button-primary"
-        onClick={handleTranscribeClick}
-        disabled={!file || !modelSize || busy}
-      >
-        {validating ? 'Checking model…' : jobInFlight ? 'Transcribing…' : 'Transcribe'}
-      </button>
-
-      {uploadJobId && !showOverlay && <JobProgress job={job} />}
 
       {showOverlay && job && (
         <CompletionOverlay

@@ -98,57 +98,90 @@ export function FolderBatchPage() {
 
   return (
     <div className="page">
-      <h2>Batch transcribe a folder</h2>
-      <FolderPathInput value={folderPath} onChange={setFolderPath} onScan={handleScan} scanning={scanning} disabled={busy} />
-      {scanError && <ModelLoadWarningBanner variant="error" message={scanError} />}
+      <section className="panel">
+        <div className="panel-header">
+          <h2>Batch transcribe a folder</h2>
+        </div>
+        <div className="panel-body">
+          <FolderPathInput
+            value={folderPath}
+            onChange={setFolderPath}
+            onScan={handleScan}
+            scanning={scanning}
+            disabled={busy}
+          />
+          {scanError && <ModelLoadWarningBanner variant="error" message={scanError} />}
+        </div>
+      </section>
 
       {videos.length > 0 && (
-        <>
-          <VideoSelectionList videos={videos} selected={selected} onToggle={toggleVideo} onToggleAll={toggleAll} />
-
-          <div className="field-row">
-            <ModelSelector models={models} value={modelSize} onChange={setModelSize} disabled={busy || modelsLoading} />
-            <LanguageSelector
-              languages={languages}
-              value={language}
-              onChange={setLanguage}
-              disabled={busy || languagesLoading}
-            />
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Videos found</h2>
+            <span className="panel-header-meta">
+              {selected.size} of {videos.length} selected
+            </span>
           </div>
+          <div className="panel-body">
+            <VideoSelectionList videos={videos} selected={selected} onToggle={toggleVideo} onToggleAll={toggleAll} />
 
-          {validationResult && !validationResult.ok && (
-            <ModelLoadWarningBanner
-              variant="error"
-              message={`Could not load model: ${validationResult.error ?? 'unknown error'}`}
-            />
-          )}
-          {validationResult?.ok && validationResult.fallbackOccurred && (
-            <ModelLoadWarningBanner
-              variant="warning"
-              message="GPU requested but not available — running on CPU, transcription will be slower."
-            />
-          )}
-          {(validationError || batchError) && (
-            <ModelLoadWarningBanner variant="error" message={validationError ?? batchError ?? ''} />
-          )}
+            <div className="field-row">
+              <ModelSelector
+                models={models}
+                value={modelSize}
+                onChange={setModelSize}
+                disabled={busy || modelsLoading}
+              />
+              <LanguageSelector
+                languages={languages}
+                value={language}
+                onChange={setLanguage}
+                disabled={busy || languagesLoading}
+              />
+            </div>
 
-          <button
-            type="button"
-            className="button button-primary"
-            onClick={handleStartBatch}
-            disabled={selected.size === 0 || busy}
-          >
-            {validating ? 'Checking model…' : `Transcribe ${selected.size} video${selected.size === 1 ? '' : 's'}`}
-          </button>
-        </>
+            {validationResult && !validationResult.ok && (
+              <ModelLoadWarningBanner
+                variant="error"
+                message={`Could not load model: ${validationResult.error ?? 'unknown error'}`}
+              />
+            )}
+            {validationResult?.ok && validationResult.fallbackOccurred && (
+              <ModelLoadWarningBanner
+                variant="warning"
+                message="GPU requested but not available — running on CPU, transcription will be slower."
+              />
+            )}
+            {(validationError || batchError) && (
+              <ModelLoadWarningBanner variant="error" message={validationError ?? batchError ?? ''} />
+            )}
+          </div>
+          <div className="panel-footer">
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={handleStartBatch}
+              disabled={selected.size === 0 || busy}
+            >
+              {validating ? 'Checking model…' : `Transcribe ${selected.size} video${selected.size === 1 ? '' : 's'}`}
+            </button>
+          </div>
+        </section>
       )}
 
       {batch && (
-        <div className="batch-progress">
-          {batch.jobs.map((jobStatus) => (
-            <JobProgress key={jobStatus.job_id} job={jobStatus} label={jobStatus.meta.source_filename} />
-          ))}
-        </div>
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Progress</h2>
+          </div>
+          <div className="panel-body">
+            <div className="batch-progress">
+              {batch.jobs.map((jobStatus) => (
+                <JobProgress key={jobStatus.job_id} job={jobStatus} label={jobStatus.meta.source_filename} />
+              ))}
+            </div>
+          </div>
+        </section>
       )}
     </div>
   )
