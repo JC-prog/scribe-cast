@@ -216,3 +216,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# scribe-cast project-specific
+logs/*.log
+!logs/.gitkeep
+model_cache/
+uploads/
+results/
+work/
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
