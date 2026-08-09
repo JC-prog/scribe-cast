@@ -4,6 +4,7 @@ from pathlib import Path
 import whisperx
 
 from app.core.srt_writer import SubtitleSegment
+from app.core.subtitle_segmenter import segment_aligned_output, segment_raw_output
 from app.logging_config import get_logger, log_event
 from app.utils.timing import Stopwatch
 
@@ -54,35 +55,34 @@ def transcribe(model, audio_path: Path, language: str | None, task: str = "trans
 
 def to_subtitle_segments(transcription: TranscriptionResult) -> list[SubtitleSegment]:
     """
-    Maps raw ASR segments straight to SubtitleSegment, bypassing forced
+    Converts raw ASR segments to subtitle cues, bypassing forced
     alignment. Used for translated output: alignment matches text to audio
     using a phoneme model for one language, but translated text is English
     while the audio's actual phonemes are the source language - there's no
     language for which both would match, so alignment would just produce
-    meaningless timestamps. Segment-level timing (Whisper's own, not
-    word-tightened) is the honest fallback here.
+    meaningless timestamps. WhisperX's raw segments can span up to its
+    ~30s batching chunk size, so subtitle_segmenter still splits them into
+    readable cues, interpolating word timing proportionally within each
+    segment since there's no real word-level timing here.
     """
-    return [
-        SubtitleSegment(start=segment["start"], end=segment["end"], text=segment["text"])
-        for segment in transcription.segments
-    ]
+    return segment_raw_output(transcription.segments)
 
 
 def align(transcription: TranscriptionResult, audio_path: Path, align_model, metadata, device: str) -> AlignmentResult:
     """
     Forced alignment: re-times every word against the audio using a
-    wav2vec2 phoneme model, producing tighter segment boundaries than
-    Whisper's own segment-level timestamps.
+    wav2vec2 phoneme model. subtitle_segmenter then packs those words into
+    readable, capped-length/duration cues - whisperx's own aligned
+    segments can still span a long multi-sentence run of continuous
+    speech with no internal breaks, which is exactly what produces a
+    screen-covering wall of subtitle text without this step.
     """
     with Stopwatch() as stopwatch:
         audio = whisperx.load_audio(str(audio_path))
         aligned = whisperx.align(
             transcription.segments, align_model, metadata, audio, device, return_char_alignments=False
         )
-        segments = [
-            SubtitleSegment(start=segment["start"], end=segment["end"], text=segment["text"])
-            for segment in aligned["segments"]
-        ]
+        segments = segment_aligned_output(aligned["segments"])
 
     log_event(
         logger,

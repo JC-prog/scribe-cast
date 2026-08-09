@@ -57,7 +57,19 @@ def test_align_returns_subtitle_segments_from_aligned_output(monkeypatch):
     def fake_align(segments, model, metadata, audio, device, return_char_alignments):
         assert return_char_alignments is False
         assert device == "cpu"
-        return {"segments": [{"start": 0.4, "end": 1.6, "text": "hello world", "words": []}]}
+        return {
+            "segments": [
+                {
+                    "start": 0.4,
+                    "end": 1.6,
+                    "text": "hello world",
+                    "words": [
+                        {"word": "hello", "start": 0.4, "end": 0.9},
+                        {"word": "world", "start": 1.0, "end": 1.6},
+                    ],
+                }
+            ]
+        }
 
     monkeypatch.setattr(transcriber_module.whisperx, "align", fake_align)
 
