@@ -10,6 +10,14 @@ faster-whisper==1.1.0
 # version ctranslate2 no longer imports the now-deprecated pkg_resources at
 # module load time (an issue on 4.5.0).
 ctranslate2==4.8.1
+# ctranslate2 does not declare these as install dependencies (pip show
+# ctranslate2 lists only numpy/pyyaml/setuptools), so DEVICE=cuda fails at
+# model-load time with "Library libcublas.so.12 is not found" unless
+# they're installed explicitly. Once present, ctranslate2 finds them on its
+# own via a wheel-relative path; no LD_LIBRARY_PATH wiring needed. Versions
+# pinned to what was verified working against ctranslate2 4.8.1.
+nvidia-cublas-cu12==12.9.2.10
+nvidia-cudnn-cu12==9.24.0.43
 # faster-whisper's utils module imports requests directly but doesn't declare
 # it, relying on a transitive pull from huggingface-hub that newer
 # huggingface-hub releases no longer provide. Pin explicitly.
