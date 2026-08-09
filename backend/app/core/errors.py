@@ -16,3 +16,7 @@ class AudioExtractionError(ScribeCastError):
 
 class ModelLoadError(ScribeCastError):
     pass
+
+
+class VideoDownloadError(ScribeCastError):
+    pass

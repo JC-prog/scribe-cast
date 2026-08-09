@@ -60,6 +60,14 @@ export function uploadVideo(
   return request('/api/upload', { method: 'POST', body: formData })
 }
 
+export function transcribeUrl(
+  url: string,
+  modelSize: string,
+  language: string,
+): Promise<UploadResponse> {
+  return postJson('/api/url/transcribe', { url, model_size: modelSize, language })
+}
+
 export function scanFolder(folderPath: string): Promise<FolderScanResponse> {
   return postJson('/api/folder/scan', { folder_path: folderPath })
 }

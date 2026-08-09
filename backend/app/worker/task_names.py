@@ -9,4 +9,5 @@ imports the real function when it executes a job.
 
 TASK_TRANSCRIBE_UPLOAD = "app.worker.tasks.task_transcribe_upload"
 TASK_TRANSCRIBE_FOLDER_ITEM = "app.worker.tasks.task_transcribe_folder_item"
+TASK_TRANSCRIBE_URL = "app.worker.tasks.task_transcribe_url"
 TASK_VALIDATE_MODEL = "app.worker.tasks.task_validate_model"

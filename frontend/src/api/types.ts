@@ -29,6 +29,7 @@ export type JobRqStatus =
 
 export type PipelineStage =
   | 'queued'
+  | 'downloading'
   | 'loading_model'
   | 'extracting_audio'
   | 'transcribing'
@@ -50,6 +51,7 @@ export interface JobMeta {
   language?: string | null
   detected_language?: string | null
   source_filename?: string
+  source_url?: string | null
   batch_id?: string | null
   timings_ms?: TimingsMs
   device_used?: 'cpu' | 'cuda'

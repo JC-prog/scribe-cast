@@ -3,9 +3,12 @@ from pathlib import Path
 from rq import get_current_job
 
 from app.config import settings
+from app.core.errors import VideoDownloadError
 from app.core.model_manager import get_model_manager
 from app.core.pipeline import run_transcription_pipeline
+from app.core.video_downloader import download_video
 from app.logging_config import get_logger, log_event
+from app.utils.text import sanitize_filename
 from app.worker.job_meta import update_job_meta
 
 logger = get_logger("scribecast.worker.tasks")
@@ -18,8 +21,9 @@ def _stage_callback(job):
     return callback
 
 
-def _run_and_record(job, source_video_path: Path, output_srt_path: Path, model_size: str, language: str | None):
-    work_dir = settings.work_dir / job.id
+def _run_and_record(
+    job, source_video_path: Path, output_srt_path: Path, model_size: str, language: str | None, work_dir: Path
+):
     try:
         result = run_transcription_pipeline(
             model_manager=get_model_manager(),
@@ -56,6 +60,7 @@ def _run_and_record(job, source_video_path: Path, output_srt_path: Path, model_s
 
 def task_transcribe_upload(upload_path: str, original_filename: str, model_size: str, language: str | None) -> dict:
     job = get_current_job()
+    work_dir = settings.work_dir / job.id
     output_path = settings.results_dir / job.id / Path(original_filename).with_suffix(".srt").name
 
     update_job_meta(
@@ -63,7 +68,7 @@ def task_transcribe_upload(upload_path: str, original_filename: str, model_size:
     )
 
     try:
-        return _run_and_record(job, Path(upload_path), output_path, model_size, language)
+        return _run_and_record(job, Path(upload_path), output_path, model_size, language, work_dir)
     finally:
         Path(upload_path).unlink(missing_ok=True)
 
@@ -72,6 +77,7 @@ def task_transcribe_folder_item(
     video_path: str, output_path: str, model_size: str, language: str | None, batch_id: str | None = None
 ) -> dict:
     job = get_current_job()
+    work_dir = settings.work_dir / job.id
 
     update_job_meta(
         job,
@@ -82,7 +88,27 @@ def task_transcribe_folder_item(
         batch_id=batch_id,
     )
 
-    return _run_and_record(job, Path(video_path), Path(output_path), model_size, language)
+    return _run_and_record(job, Path(video_path), Path(output_path), model_size, language, work_dir)
+
+
+def task_transcribe_url(url: str, model_size: str, language: str | None) -> dict:
+    job = get_current_job()
+    work_dir = settings.work_dir / job.id
+
+    update_job_meta(job, stage="queued", model_size=model_size, language=language, source_url=url)
+
+    try:
+        update_job_meta(job, stage="downloading")
+        download_result = download_video(url, work_dir)
+    except VideoDownloadError as exc:
+        log_event(logger, "url_download_failed", job_id=job.id, url=url, error=str(exc))
+        update_job_meta(job, stage="failed", error=str(exc))
+        raise
+
+    update_job_meta(job, source_filename=download_result.title)
+    output_path = settings.results_dir / job.id / f"{sanitize_filename(download_result.title)}.srt"
+
+    return _run_and_record(job, download_result.path, output_path, model_size, language, work_dir)
 
 
 def task_validate_model(model_size: str) -> dict:

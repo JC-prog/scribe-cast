@@ -1,6 +1,10 @@
 from pathlib import Path
 
+import pytest
+
+from app.core.errors import VideoDownloadError
 from app.core.pipeline import PipelineResult
+from app.core.video_downloader import DownloadResult
 from app.worker import tasks as tasks_module
 
 
@@ -91,6 +95,56 @@ def test_task_transcribe_folder_item_writes_sibling_srt(monkeypatch, tmp_path):
     assert result["output_path"] == str(output_path)
     assert job.meta["batch_id"] == "batch-1"
     assert job.meta["stage"] == "completed"
+
+
+def test_task_transcribe_url_downloads_then_transcribes(monkeypatch, tmp_path):
+    job = FakeJob()
+    monkeypatch.setattr(tasks_module, "get_current_job", lambda: job)
+    monkeypatch.setattr(tasks_module.settings, "results_dir", tmp_path / "results")
+    monkeypatch.setattr(tasks_module.settings, "work_dir", tmp_path / "work")
+
+    downloaded_path = tmp_path / "work" / job.id / "source.webm"
+
+    def fake_download_video(url, work_dir):
+        downloaded_path.parent.mkdir(parents=True, exist_ok=True)
+        downloaded_path.write_bytes(b"fake audio")
+        return DownloadResult(path=downloaded_path, title="My Video", source_url=url)
+
+    monkeypatch.setattr(tasks_module, "download_video", fake_download_video)
+
+    def fake_run_pipeline(**kwargs):
+        output_path = kwargs["output_srt_path"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("fake srt")
+        assert kwargs["source_video_path"] == downloaded_path
+        return _fake_pipeline_result(output_path)
+
+    monkeypatch.setattr(tasks_module, "run_transcription_pipeline", fake_run_pipeline)
+
+    result = tasks_module.task_transcribe_url("https://example.com/watch?v=abc", "tiny", None)
+
+    assert result["detected_language"] == "en"
+    assert job.meta["stage"] == "completed"
+    assert job.meta["source_url"] == "https://example.com/watch?v=abc"
+    assert job.meta["source_filename"] == "My Video"
+    assert "My Video.srt" in result["output_path"]
+
+
+def test_task_transcribe_url_marks_failed_on_download_error(monkeypatch, tmp_path):
+    job = FakeJob()
+    monkeypatch.setattr(tasks_module, "get_current_job", lambda: job)
+    monkeypatch.setattr(tasks_module.settings, "work_dir", tmp_path / "work")
+
+    def fake_download_video(url, work_dir):
+        raise VideoDownloadError("Could not download video: unsupported URL")
+
+    monkeypatch.setattr(tasks_module, "download_video", fake_download_video)
+
+    with pytest.raises(VideoDownloadError):
+        tasks_module.task_transcribe_url("https://example.com/not-a-video", "tiny", None)
+
+    assert job.meta["stage"] == "failed"
+    assert "unsupported URL" in job.meta["error"]
 
 
 def test_task_validate_model_ok(monkeypatch):

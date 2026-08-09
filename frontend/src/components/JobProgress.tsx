@@ -3,6 +3,7 @@ import { formatDuration } from '../utils/format'
 
 const STAGE_LABELS: Record<string, string> = {
   queued: 'Queued',
+  downloading: 'Downloading',
   loading_model: 'Loading model',
   extracting_audio: 'Extracting audio',
   transcribing: 'Transcribing',

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { FolderBatchPage } from './pages/FolderBatchPage'
 import { UploadPage } from './pages/UploadPage'
+import { UrlPage } from './pages/UrlPage'
 
-type Tab = 'upload' | 'folder'
+type Tab = 'upload' | 'url' | 'folder'
 
 function App() {
   const [tab, setTab] = useState<Tab>('upload')
@@ -27,6 +28,13 @@ function App() {
         </button>
         <button
           type="button"
+          className={`tab${tab === 'url' ? ' tab-active' : ''}`}
+          onClick={() => setTab('url')}
+        >
+          Paste a link
+        </button>
+        <button
+          type="button"
           className={`tab${tab === 'folder' ? ' tab-active' : ''}`}
           onClick={() => setTab('folder')}
         >
@@ -34,7 +42,11 @@ function App() {
         </button>
       </nav>
 
-      <main>{tab === 'upload' ? <UploadPage /> : <FolderBatchPage />}</main>
+      <main>
+        {tab === 'upload' && <UploadPage />}
+        {tab === 'url' && <UrlPage />}
+        {tab === 'folder' && <FolderBatchPage />}
+      </main>
     </div>
   )
 }

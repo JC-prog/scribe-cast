@@ -1,4 +1,8 @@
 -r requirements-base.txt
+# YouTube changes its site frequently enough that old yt-dlp pins routinely
+# break with "No video formats found" errors — keep this reasonably current
+# rather than pinning to whatever was latest when this was written.
+yt-dlp==2026.7.4
 faster-whisper==1.1.0
 # ctranslate2 4.5.0's manylinux wheel fails to load on some newer kernels
 # ("cannot enable executable stack ... Invalid argument" from libctranslate2.so);
