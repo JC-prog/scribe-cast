@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-09
+
 ### Added
 
 - `GET /api/version`, backed by a new `APP_VERSION` setting, logged at worker startup too — makes "what version is this container actually running" inspectable at runtime instead of having to infer it from commit timestamps vs. container `CREATED` time.
