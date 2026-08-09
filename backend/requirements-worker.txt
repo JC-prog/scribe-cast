@@ -11,11 +11,15 @@ faster-whisper==1.1.0
 # module load time (an issue on 4.5.0).
 ctranslate2==4.8.1
 # ctranslate2 does not declare these as install dependencies (pip show
-# ctranslate2 lists only numpy/pyyaml/setuptools), so DEVICE=cuda fails at
-# model-load time with "Library libcublas.so.12 is not found" unless
-# they're installed explicitly. Once present, ctranslate2 finds them on its
-# own via a wheel-relative path; no LD_LIBRARY_PATH wiring needed. Versions
-# pinned to what was verified working against ctranslate2 4.8.1.
+# ctranslate2 lists only numpy/pyyaml/setuptools). Without them, DEVICE=cuda
+# fails at the first real inference call (not model load - construction
+# never touches cuBLAS) with "Library libcublas.so.12 is not found or
+# cannot be loaded". Installing them isn't sufficient on its own either:
+# the Dockerfile's worker stage also sets LD_LIBRARY_PATH to their
+# site-packages lib dirs, since pip-installed .so files aren't on the
+# default dynamic linker search path. Versions pinned to what was verified
+# working (real transcribe() call, not just model construction) against
+# ctranslate2 4.8.1.
 nvidia-cublas-cu12==12.9.2.10
 nvidia-cudnn-cu12==9.24.0.43
 # faster-whisper's utils module imports requests directly but doesn't declare
