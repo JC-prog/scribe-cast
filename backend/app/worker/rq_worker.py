@@ -34,7 +34,9 @@ def main() -> None:
     connection = Redis.from_url(settings.redis_url)
     queue = Queue(settings.queue_name, connection=connection)
 
-    log_event(logger, "worker_starting", queue=settings.queue_name, redis_url=settings.redis_url)
+    log_event(
+        logger, "worker_starting", version=settings.app_version, queue=settings.queue_name, redis_url=settings.redis_url
+    )
     worker = PortableSimpleWorker([queue], connection=connection)
     worker.work()
 

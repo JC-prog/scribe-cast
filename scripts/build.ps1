@@ -6,6 +6,8 @@ param(
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
+$env:VERSION = (Get-Content VERSION -Raw).Trim()
+
 if ($Gpu) {
     Write-Host "==> Building images (GPU override: worker gets the CUDA device reservation)"
     docker compose -f docker-compose.yml -f docker-compose.gpu.yml build

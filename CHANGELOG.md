@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `GET /api/version`, backed by a new `APP_VERSION` setting, logged at worker startup too — makes "what version is this container actually running" inspectable at runtime instead of having to infer it from commit timestamps vs. container `CREATED` time.
+- `docker-compose.yml`'s `api`/`worker`/`frontend` services now build tagged images (`scribe-cast-worker:2.0.0` etc.) instead of always `:latest`. `scripts/build.*`/`scripts/stack.*` export `VERSION` from the repo-root `VERSION` file before invoking `docker compose`, so the `VERSION` file stays the single source of truth (not duplicated into `.env`). Falls back to `latest`/`0.0.0-dev` if invoked without the scripts.
+
 ## [2.0.0] - 2026-08-09
 
 ### Changed

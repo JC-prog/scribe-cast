@@ -1,6 +1,13 @@
 # Base compose file: CPU-safe, runs anywhere Docker runs (no GPU required).
 # On the CUDA host, layer docker-compose.gpu.yml on top:
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+#
+# VERSION drives both the image tags below and the APP_VERSION env var
+# (read by GET /api/version and logged at worker startup) - it's exported
+# from the repo-root VERSION file by scripts/build.*/stack.*, not
+# duplicated into .env, so there's one source of truth. Falls back to
+# "latest"/"0.0.0-dev" if VERSION isn't set (e.g. invoking docker compose
+# directly instead of through the scripts).
 services:
   redis:
     image: redis:7-alpine
@@ -11,10 +18,12 @@ services:
     build:
       context: ./backend
       target: api
+    image: scribe-cast-api:${VERSION:-latest}
     ports:
       - "8000:8000"
     environment:
       REDIS_URL: redis://redis:6379/0
+      APP_VERSION: ${VERSION:-0.0.0-dev}
     volumes:
       - ./logs:/app/logs
       - uploads_data:/app/uploads
@@ -28,8 +37,10 @@ services:
     build:
       context: ./backend
       target: worker
+    image: scribe-cast-worker:${VERSION:-latest}
     environment:
       REDIS_URL: redis://redis:6379/0
+      APP_VERSION: ${VERSION:-0.0.0-dev}
       DEVICE: ${DEVICE:-auto}
       COMPUTE_TYPE: ${COMPUTE_TYPE:-}
       # whisperx's Silero VAD and wav2vec2 alignment models download via
@@ -50,6 +61,7 @@ services:
   frontend:
     build:
       context: ./frontend
+    image: scribe-cast-frontend:${VERSION:-latest}
     ports:
       - "5173:80"
     depends_on:

@@ -9,6 +9,12 @@ ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # App
+    # Sourced from the repo-root VERSION file via APP_VERSION, set by
+    # scripts/build.*/stack.* - not duplicated into .env to avoid drift
+    # from the single source of truth.
+    app_version: str = "0.0.0-dev"
+
     # Device / model
     device: Literal["auto", "cuda", "cpu"] = "auto"
     compute_type: str | None = None

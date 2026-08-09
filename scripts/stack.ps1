@@ -9,6 +9,8 @@ param(
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
+$env:VERSION = (Get-Content VERSION -Raw).Trim()
+
 $files = @("-f", "docker-compose.yml")
 if ($Gpu) { $files += @("-f", "docker-compose.gpu.yml") }
 
