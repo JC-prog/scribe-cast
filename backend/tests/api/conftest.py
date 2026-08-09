@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from rq import Queue
 
 from app.api.deps import get_queue, get_redis_conn
-from app.main import app
+from app.api.main import app
 
 
 @pytest.fixture

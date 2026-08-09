@@ -48,7 +48,7 @@ Tests are hermetic — no real Redis, ffmpeg, or model download/inference is req
 To run the API and worker outside Docker, you need a local Redis and ffmpeg on `PATH`:
 
 ```bash
-uvicorn app.main:app --reload           # from backend/, api process
+uvicorn app.api.main:app --reload       # from backend/, api process
 python -m app.worker.rq_worker          # from backend/, worker process
 ```
 
