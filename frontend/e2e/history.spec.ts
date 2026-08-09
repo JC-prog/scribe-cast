@@ -15,10 +15,11 @@ test('a completed upload job appears in History with a working download link', a
 
   const overlay = page.locator('.overlay-card')
   await expect(overlay.getByText('Transcription complete')).toBeVisible({ timeout: 60_000 })
+  await overlay.getByRole('button', { name: 'Close' }).last().click()
 
   await page.getByRole('button', { name: 'History' }).click()
 
-  const row = page.locator('.history-row', { hasText: 'test_clip.mp4' })
+  const row = page.locator('.history-row', { hasText: 'test_clip.mp4' }).first()
   await expect(row).toBeVisible({ timeout: 15_000 })
   await expect(row.getByText('Done')).toBeVisible()
 
