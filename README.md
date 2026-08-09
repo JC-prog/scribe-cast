@@ -5,17 +5,17 @@
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 ![Node](https://img.shields.io/badge/node-22-green)
 
-Local-first video transcription. Upload a video (or point at a folder) and get back an `.srt` subtitle file, transcribed with [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Everything runs on your own machine via Docker — video never leaves your host.
+Local-first video transcription. Upload a video (or point at a folder) and get back an `.srt` subtitle file, transcribed with [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Everything runs on your own machine via Docker, so video never leaves your host.
 
 **Full documentation:** [`docs/`](docs/index.md) (browse on GitHub, or run `scripts/docs.sh serve` / `scripts\docs.ps1 serve` for the built [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) site at `http://localhost:8000`).
 
 ## Features
 
-- **Single upload** — upload a video, download the generated `.srt`; a completion overlay shows how long transcription took.
-- **Folder batch** — point at a folder, pick which discovered videos to process, get an `.srt` next to each source video.
-- **Model & language selection** — per job, with a pre-flight check that a chosen model can actually load before committing to the job.
-- **CPU/GPU portable** — the same worker image runs on a CPU-only host or a CUDA host; a requested-but-unavailable GPU falls back to CPU automatically, with a visible warning.
-- **Observability** — structured JSON logs in `logs/` for model latency, transcription duration, and errors.
+- **Single upload:** upload a video, download the generated `.srt`; a completion overlay shows how long transcription took.
+- **Folder batch:** point at a folder, pick which discovered videos to process, get an `.srt` next to each source video.
+- **Model & language selection:** per job, with a pre-flight check that a chosen model can actually load before committing to the job.
+- **CPU/GPU portable:** the same worker image runs on a CPU-only host or a CUDA host; a requested-but-unavailable GPU falls back to CPU automatically, with a visible warning.
+- **Observability:** structured JSON logs in `logs/` for model latency, transcription duration, and errors.
 
 See [`docs/features.md`](docs/features.md) for detail on each.
 
@@ -31,13 +31,13 @@ frontend (React/Vite, served by nginx) ──/api/*──▶ api (FastAPI)
                                                     worker (RQ) ──▶ ffmpeg ──▶ faster-whisper ──▶ .srt
 ```
 
-The `api` container never imports the ML stack; the `worker` container does the real work and is the only place a GPU is used, when one's available. See [`docs/architecture.md`](docs/architecture.md) for the full design, especially the [CPU/GPU portability](docs/architecture.md#cpugpu-portability) section — it's the design constraint most of this repo's structure is built around.
+The `api` container never imports the ML stack; the `worker` container does the real work and is the only place a GPU is used, when one's available. See [`docs/architecture.md`](docs/architecture.md) for the full design, especially the [CPU/GPU portability](docs/architecture.md#cpugpu-portability) section, since it's the design constraint most of this repo's structure is built around.
 
 ## Quick start
 
 ```bash
 cp .env.example .env
-# edit .env — set DATA_DIR to the folder you want available for folder-batch jobs
+# edit .env: set DATA_DIR to the folder you want available for folder-batch jobs
 ```
 
 Then, on a CPU-only host:
