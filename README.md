@@ -1,11 +1,11 @@
 # scribe-cast
 
-![Version](https://img.shields.io/badge/version-1.1.0-7c3aed)
+![Version](https://img.shields.io/badge/version-2.0.0-7c3aed)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 ![Node](https://img.shields.io/badge/node-22-green)
 
-Local-first video transcription. Upload a video (or point at a folder) and get back an `.srt` subtitle file, transcribed with [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Everything runs on your own machine via Docker, so video never leaves your host.
+Local-first video transcription. Upload a video (or point at a folder) and get back an `.srt` subtitle file, transcribed and forced-aligned with [WhisperX](https://github.com/m-bain/whisperX). Everything runs on your own machine via Docker, so video never leaves your host.
 
 **Full documentation:** [`docs/`](docs/index.md) (browse on GitHub, or run `scripts/docs.sh serve` / `scripts\docs.ps1 serve` for the built [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) site at `http://localhost:8000`).
 
@@ -28,7 +28,7 @@ frontend (React/Vite, served by nginx) ──/api/*──▶ api (FastAPI)
                                                     redis (job queue)
                                                        ▲
                                                        │
-                                                    worker (RQ) ──▶ ffmpeg ──▶ faster-whisper ──▶ .srt
+                                        worker (RQ) ──▶ ffmpeg ──▶ WhisperX (ASR + forced alignment) ──▶ .srt
 ```
 
 The `api` container never imports the ML stack; the `worker` container does the real work and is the only place a GPU is used, when one's available. See [`docs/architecture.md`](docs/architecture.md) for the full design, especially the [CPU/GPU portability](docs/architecture.md#cpugpu-portability) section, since it's the design constraint most of this repo's structure is built around.

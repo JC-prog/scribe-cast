@@ -9,7 +9,7 @@ frontend (React/Vite, served by nginx) ──/api/*──▶ api (FastAPI)
                                                     redis (job queue)
                                                        ▲
                                                        │
-                                                    worker (RQ) ──▶ ffmpeg ──▶ faster-whisper ──▶ .srt
+                                        worker (RQ) ──▶ ffmpeg ──▶ WhisperX (ASR + forced alignment) ──▶ .srt
 ```
 
 Four containers:
@@ -19,11 +19,11 @@ Four containers:
 | `frontend` | Static React build served by nginx; proxies `/api/*` to `api` same-origin |
 | `api` | FastAPI app. Thin HTTP layer — validates requests, enqueues jobs, reports job status. **Never imports the ML stack.** |
 | `redis` | Backing store for the RQ job queue and job status/metadata |
-| `worker` | Runs the actual pipeline: ffmpeg audio extraction → faster-whisper transcription → SRT writing |
+| `worker` | Runs the actual pipeline: ffmpeg audio extraction → WhisperX batched transcription → wav2vec2 forced alignment → SRT writing |
 
-## Why the API never imports faster-whisper
+## Why the API never imports the ML stack
 
-`app/worker/tasks.py` imports `model_manager`, which imports `faster_whisper`/`ctranslate2`. If any API route imported that module directly, the API container would silently pull in the entire ML stack — defeating the point of keeping it lightweight and device-agnostic.
+`app/worker/tasks.py` imports `model_manager`, which imports `whisperx` (and, through it, `torch`/`faster_whisper`/`ctranslate2`). If any API route imported that module directly, the API container would silently pull in the entire ML stack — defeating the point of keeping it lightweight and device-agnostic.
 
 Instead, routes enqueue jobs **by dotted string path** (`app/worker/task_names.py`) rather than importing the task functions:
 
@@ -31,18 +31,22 @@ Instead, routes enqueue jobs **by dotted string path** (`app/worker/task_names.p
 queue.enqueue(TASK_TRANSCRIBE_UPLOAD, str(upload_path), file.filename, model_size, resolved_language)
 ```
 
-RQ resolves and imports the real function only when the **worker** process executes the job. This is verified with a `grep` gate over `app/api` and `app/schemas` (no matches for `worker.tasks`, `model_manager`, or `faster_whisper`) and by checking `pip show faster-whisper` inside the built `api` image, which reports "not found."
+RQ resolves and imports the real function only when the **worker** process executes the job. This is verified with a `grep` gate over `app/api` and `app/schemas` (no matches for `worker.tasks`, `model_manager`, or `whisperx`) and by checking `pip show whisperx` inside the built `api` image, which reports "not found."
 
 ## CPU/GPU portability
 
 This is the central non-functional requirement the design is built around: the same worker image needs to run on a CUDA-enabled host and on a plain CPU-only host, without maintaining two separate images.
 
-**One image, not two.** `ctranslate2` (the inference engine behind faster-whisper) can do CUDA inference without needing CUDA baked into the OS image, but getting there needs two things this repo wires up explicitly, neither of which `ctranslate2` handles on its own:
+**One image, not two.** `whisperx` wraps `faster-whisper`/`ctranslate2` for the ASR pass and `torch`/`torchaudio` for wav2vec2 forced alignment; both can do CUDA inference without needing CUDA baked into the OS image, via pip-installable `nvidia-*-cu12` runtime packages. Getting there needs two things this repo wires up explicitly, neither of which `ctranslate2` handles on its own:
 
-1. **The cuBLAS/cuDNN shared libraries themselves.** `ctranslate2` does not declare them as install dependencies (`pip show ctranslate2` lists only `numpy`/`pyyaml`/`setuptools`), so `requirements-worker.txt` pins `nvidia-cublas-cu12`/`nvidia-cudnn-cu12` explicitly.
-2. **Making those libraries findable at runtime.** Installing the two packages above is not sufficient by itself: pip puts their `.so` files inside `site-packages`, not on the default dynamic linker search path, and `ctranslate2` does not locate them automatically. `backend/Dockerfile`'s worker stage sets `LD_LIBRARY_PATH` to their `site-packages/nvidia/{cublas,cudnn,cuda_nvrtc}/lib` directories for this reason.
+1. **The cuBLAS/cuDNN shared libraries themselves.** `ctranslate2` does not declare them as install dependencies (`pip show ctranslate2` lists only `numpy`/`pyyaml`/`setuptools`) — but `whisperx`'s own `torch` dependency does, and pulls compatible versions transitively. This matters concretely: `torch` is strict about exact companion `nvidia-cublas-cu12`/`nvidia-cudnn-cu12` versions, and those do **not** match the versions `ctranslate2` alone was happy with pre-`whisperx` — pinning them ourselves (as an earlier version of this file did) would fight `torch`'s own resolution. `requirements-worker.txt` now leaves them to `whisperx`'s transitive resolution rather than pinning explicitly.
+2. **Making those libraries findable at runtime.** `pip` puts their `.so` files inside `site-packages`, not on the default dynamic linker search path, and `ctranslate2` does not locate them automatically (unlike `torch`, which manages its own `nvidia-*-cu12` companions via a different mechanism and does not need this). `backend/Dockerfile`'s worker stage sets `LD_LIBRARY_PATH` to the relevant `site-packages/nvidia/*/lib` directories for this reason.
 
-Skipping either step surfaces the same misleading symptom: `ctranslate2.get_cuda_device_count()` still returns `>0` and model *construction* still succeeds (`nvidia-smi` works, the driver/GPU passthrough is fine), because neither of those touches cuBLAS. The failure only shows up at the first real `transcribe()` call, when the encoder actually needs a cuBLAS GEMM, as `Library libcublas.so.12 is not found or cannot be loaded`. A model-load pre-check alone (see below) won't catch this class of failure, since it never runs actual inference. With both pieces in place, a single `python:3.11-slim`-based image can do both CPU and GPU inference; no `nvidia/cuda` base image is needed. GPU access itself is a purely *runtime* concern: the container needs `--gpus`/a Compose device reservation, and the host needs an NVIDIA driver + `nvidia-container-toolkit`. See `backend/Dockerfile`.
+Skipping either step surfaces the same misleading symptom: `ctranslate2.get_cuda_device_count()` still returns `>0` and model *construction* still succeeds (`nvidia-smi` works, the driver/GPU passthrough is fine), because neither of those touches cuBLAS. The failure only shows up at the first real `transcribe()` call, when the encoder actually needs a cuBLAS GEMM, as `Library libcublas.so.12 is not found or cannot be loaded`. A model-load pre-check alone (see below) won't catch this class of failure, since it never runs actual inference — the same gap applies to the forced-alignment step, which is a second, separate model with its own load-vs-use distinction. With both pieces in place, a single `python:3.11-slim`-based image can do both CPU and GPU inference; no `nvidia/cuda` base image is needed. GPU access itself is a purely *runtime* concern: the container needs `--gpus`/a Compose device reservation, and the host needs an NVIDIA driver + `nvidia-container-toolkit`. See `backend/Dockerfile`.
+
+**CPU-only hosts pay a real cost for this, not just a theoretical one.** Adopting `whisperx` means every install — including CPU-only ones — now pulls the full `torch`/`torchaudio`/`pyannote-audio`/`transformers` stack (whisperx uses `torch` for forced alignment regardless of device), which is a meaningfully heavier image and slower CPU inference than the plain `ctranslate2`-only setup this repo shipped before. This was a deliberate trade-off (full replacement over a dual-engine config flag) made in exchange for materially better subtitle timestamp accuracy; see the changelog for `v2.0.0`.
+
+**`vad_method="silero"` is deliberate, not `whisperx`'s default.** `whisperx.load_model()` defaults to `vad_method="pyannote"`, a gated Hugging Face model requiring an auth token. `app/core/model_manager.py` passes `vad_method="silero"` explicitly — ungated, fully local — so the core transcription path never needs a Hugging Face account. (Speaker diarization, a separate opt-in `whisperx` feature this repo does not use, would still need one.)
 
 **Device resolution is centralized** in `app/core/device.py`:
 
@@ -66,7 +70,7 @@ def resolve_device(requested: "auto" | "cuda" | "cpu", compute_type_override=Non
 
 ## Model manager & the load pre-check
 
-`app/core/model_manager.py` holds an LRU cache of loaded `WhisperModel` instances, keyed by `(model_size, device, compute_type)`, capped at `MAX_CACHED_MODELS` (default 1 — safe given VRAM constraints).
+`app/core/model_manager.py` holds two separate LRU caches, each capped at `MAX_CACHED_MODELS` (default 1 — safe given VRAM constraints): one for loaded `whisperx` ASR pipelines, keyed by `(model_size, device, compute_type)`, and one for wav2vec2 alignment models, keyed by `(language, device)` — alignment models are per-language, not per-model-size, so they can't share the ASR cache's key shape.
 
 The worker runs as **`SimpleWorker`**, not RQ's default `Worker` — this is a specific, deliberate choice. RQ's default worker forks a new OS process per job for crash isolation, but a module-level cache loaded in a forked child is lost when that child exits. `SimpleWorker` runs jobs in a single long-lived process, so the cache actually persists across jobs. The trade-off (no per-job crash isolation) is acceptable for a trusted, single-tenant, local-first tool.
 
@@ -78,9 +82,10 @@ The **model-load pre-check** (`POST /api/models/validate`) enqueues `task_valida
 
 1. **loading_model** — `model_manager.load()` (no-op on cache hit)
 2. **extracting_audio** — ffmpeg, `-vn -ac 1 -ar 16000 -c:a pcm_s16le`, producing 16kHz mono WAV in a per-job temp work dir (never the source folder)
-3. **transcribing** — `model.transcribe(..., vad_filter=True)`; timed across the full segment-generator iteration, since faster-whisper does its real work lazily while iterating
-4. **writing_subtitles** — pure-function SRT formatting
-5. temp audio cleanup (always, success or failure)
+3. **transcribing** — `whisperx`'s batched ASR pass (`app/core/transcriber.py::transcribe`); unlike plain faster-whisper's lazy segment generator, this returns a fully materialized result from one blocking call
+4. **aligning** — forced alignment (`app/core/transcriber.py::align`): re-times every word against the audio with a wav2vec2 phoneme model, producing tighter segment boundaries than Whisper's own segment-level timestamps; the alignment model is loaded via `model_manager.load_align_model()`, a second cache lookup keyed by the detected language
+5. **writing_subtitles** — pure-function SRT formatting, from the *aligned* segments
+6. temp audio cleanup (always, success or failure)
 
 Each stage transition is reported through a callback rather than a direct RQ dependency, so `core/` has no import of the queue layer — `worker/tasks.py` wires the callback to `job.meta` updates.
 

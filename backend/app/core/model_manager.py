@@ -3,7 +3,7 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 
-from faster_whisper import WhisperModel
+import whisperx
 
 from app.config import settings
 from app.core.device import DeviceRequest, resolve_device
@@ -13,6 +13,7 @@ from app.utils.timing import Stopwatch
 logger = get_logger("scribecast.model_manager")
 
 CacheKey = tuple[str, str, str]  # (model_size, device, compute_type)
+AlignCacheKey = tuple[str, str]  # (language, device)
 
 
 @dataclass
@@ -26,18 +27,24 @@ class ValidationResult:
 
 class ModelManager:
     """
-    Caches loaded WhisperModel instances so repeated jobs against the same
-    model don't pay the (slow) load cost more than once. Intended to live in
+    Caches loaded WhisperX ASR pipelines and alignment models so repeated
+    jobs don't pay the (slow) load cost more than once. Intended to live in
     a single, non-forking worker process (see rq_worker.py) — the cache is
     useless if RQ forks a fresh process per job.
+
+    Two separate caches: ASR models are keyed by (model_size, device,
+    compute_type), alignment (wav2vec2) models are keyed by (language,
+    device) - they're loaded on different axes, so one cache can't serve
+    both.
     """
 
     def __init__(self, max_cached_models: int = 1):
         self._max_cached_models = max_cached_models
-        self._cache: "OrderedDict[CacheKey, WhisperModel]" = OrderedDict()
+        self._cache: "OrderedDict[CacheKey, whisperx.asr.FasterWhisperPipeline]" = OrderedDict()
+        self._align_cache: "OrderedDict[AlignCacheKey, tuple]" = OrderedDict()
         self._lock = threading.Lock()
 
-    def load(self, model_size: str, device_request: DeviceRequest = "auto") -> tuple[WhisperModel, dict]:
+    def load(self, model_size: str, device_request: DeviceRequest = "auto") -> tuple:
         resolution = resolve_device(device_request, compute_type_override=settings.compute_type)
         cache_key: CacheKey = (model_size, resolution.device, resolution.compute_type)
 
@@ -54,10 +61,15 @@ class ModelManager:
                 }
 
             with Stopwatch() as stopwatch:
-                model = WhisperModel(
+                # vad_method="silero" is deliberate: whisperx defaults to a
+                # gated pyannote VAD model requiring a Hugging Face token.
+                # Silero is ungated and fully local - keeps the "no HF
+                # account needed" property of the core transcription path.
+                model = whisperx.load_model(
                     model_size,
-                    device=resolution.device,
+                    resolution.device,
                     compute_type=resolution.compute_type,
+                    vad_method="silero",
                     download_root=str(settings.model_cache_dir),
                 )
 
@@ -82,6 +94,31 @@ class ModelManager:
                 "load_time_ms": stopwatch.elapsed_ms,
                 "cache_hit": False,
             }
+
+    def load_align_model(self, language: str, device: str) -> tuple:
+        cache_key: AlignCacheKey = (language, device)
+
+        with self._lock:
+            if cache_key in self._align_cache:
+                self._align_cache.move_to_end(cache_key)
+                return self._align_cache[cache_key]
+
+            with Stopwatch() as stopwatch:
+                align_model, metadata = whisperx.load_align_model(language_code=language, device=device)
+
+            self._align_cache[cache_key] = (align_model, metadata)
+            while len(self._align_cache) > self._max_cached_models:
+                self._align_cache.popitem(last=False)
+
+            log_event(
+                logger,
+                "align_model_load",
+                language=language,
+                device=device,
+                duration_ms=round(stopwatch.elapsed_ms, 1),
+            )
+
+            return align_model, metadata
 
     def validate(self, model_size: str, device_request: DeviceRequest = "auto") -> ValidationResult:
         try:

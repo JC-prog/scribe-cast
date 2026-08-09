@@ -1,83 +1,56 @@
-from types import SimpleNamespace
-
-from app.core.transcriber import transcribe
-
-
-class FakeWord:
-    def __init__(self, start, end):
-        self.start = start
-        self.end = end
+from app.core import transcriber as transcriber_module
+from app.core.transcriber import TranscriptionResult, align, transcribe
 
 
-class FakeSegment:
-    def __init__(self, start, end, text, words=None):
-        self.start = start
-        self.end = end
-        self.text = text
-        self.words = words if words is not None else []
-
-
-class FakeModel:
-    def __init__(self, segments, language):
-        self._segments = segments
-        self._language = language
+class FakeAsrModel:
+    def __init__(self, result):
+        self._result = result
         self.calls = []
 
-    def transcribe(self, audio_path, language, vad_filter, word_timestamps):
-        self.calls.append(
-            {
-                "audio_path": audio_path,
-                "language": language,
-                "vad_filter": vad_filter,
-                "word_timestamps": word_timestamps,
-            }
-        )
-        info = SimpleNamespace(language=self._language)
-        return iter(self._segments), info
+    def transcribe(self, audio, batch_size, language):
+        self.calls.append({"audio": audio, "batch_size": batch_size, "language": language})
+        return self._result
 
 
-def test_transcribe_returns_segments_and_detected_language():
-    fake_segments = [
-        FakeSegment(0.0, 1.0, "hello", words=[FakeWord(0.1, 0.9)]),
-        FakeSegment(1.0, 2.5, "world", words=[FakeWord(1.2, 2.3)]),
-    ]
-    model = FakeModel(fake_segments, language="en")
+def test_transcribe_returns_segments_and_detected_language(monkeypatch):
+    monkeypatch.setattr(transcriber_module.whisperx, "load_audio", lambda path: "fake-audio-array")
+    model = FakeAsrModel({"segments": [{"start": 0.0, "end": 1.0, "text": "hello"}], "language": "en"})
 
     result = transcribe(model, audio_path="audio.wav", language=None)
 
-    assert len(result.segments) == 2
-    assert result.segments[0].text == "hello"
+    assert result.segments == [{"start": 0.0, "end": 1.0, "text": "hello"}]
     assert result.detected_language == "en"
     assert result.elapsed_ms >= 0
 
 
-def test_transcribe_passes_language_vad_filter_and_word_timestamps_through():
-    model = FakeModel([], language="fr")
+def test_transcribe_passes_batch_size_and_language_through(monkeypatch):
+    monkeypatch.setattr(transcriber_module.whisperx, "load_audio", lambda path: "fake-audio-array")
+    model = FakeAsrModel({"segments": [], "language": "fr"})
 
     transcribe(model, audio_path="audio.wav", language="fr")
 
     assert model.calls[0]["language"] == "fr"
-    assert model.calls[0]["vad_filter"] is True
-    assert model.calls[0]["word_timestamps"] is True
+    assert model.calls[0]["batch_size"] == transcriber_module._BATCH_SIZE
 
 
-def test_transcribe_trims_segment_bounds_to_first_and_last_word():
-    fake_segments = [
-        FakeSegment(0.0, 2.0, "hello world", words=[FakeWord(0.4, 0.9), FakeWord(1.1, 1.6)]),
-    ]
-    model = FakeModel(fake_segments, language="en")
+def test_align_returns_subtitle_segments_from_aligned_output(monkeypatch):
+    monkeypatch.setattr(transcriber_module.whisperx, "load_audio", lambda path: "fake-audio-array")
 
-    result = transcribe(model, audio_path="audio.wav", language=None)
+    def fake_align(segments, model, metadata, audio, device, return_char_alignments):
+        assert return_char_alignments is False
+        assert device == "cpu"
+        return {"segments": [{"start": 0.4, "end": 1.6, "text": "hello world", "words": []}]}
 
+    monkeypatch.setattr(transcriber_module.whisperx, "align", fake_align)
+
+    transcription = TranscriptionResult(
+        segments=[{"start": 0.0, "end": 2.0, "text": "hello world"}], detected_language="en", elapsed_ms=1.0
+    )
+
+    result = align(transcription, audio_path="audio.wav", align_model="model", metadata={}, device="cpu")
+
+    assert len(result.segments) == 1
     assert result.segments[0].start == 0.4
     assert result.segments[0].end == 1.6
-
-
-def test_transcribe_falls_back_to_segment_bounds_when_no_words():
-    fake_segments = [FakeSegment(0.0, 2.0, "hello world", words=[])]
-    model = FakeModel(fake_segments, language="en")
-
-    result = transcribe(model, audio_path="audio.wav", language=None)
-
-    assert result.segments[0].start == 0.0
-    assert result.segments[0].end == 2.0
+    assert result.segments[0].text == "hello world"
+    assert result.elapsed_ms >= 0

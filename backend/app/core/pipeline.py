@@ -7,7 +7,7 @@ from app.core.audio_extractor import extract_audio
 from app.core.device import DeviceRequest
 from app.core.model_manager import ModelManager
 from app.core.srt_writer import write_srt
-from app.core.transcriber import transcribe
+from app.core.transcriber import align, transcribe
 from app.logging_config import get_logger, log_event
 from app.utils.timing import Stopwatch
 
@@ -68,9 +68,16 @@ def run_transcription_pipeline(
         transcription = transcribe(model, audio_path, language)
         timings_ms["transcribe"] = transcription.elapsed_ms
 
+        on_stage_change("aligning", {})
+        align_model, align_metadata = model_manager.load_align_model(
+            transcription.detected_language, model_info["device_used"]
+        )
+        alignment = align(transcription, audio_path, align_model, align_metadata, model_info["device_used"])
+        timings_ms["align"] = alignment.elapsed_ms
+
         on_stage_change("writing_subtitles", {"detected_language": transcription.detected_language})
         with Stopwatch() as stopwatch:
-            write_srt(transcription.segments, output_srt_path)
+            write_srt(alignment.segments, output_srt_path)
         timings_ms["srt_write"] = stopwatch.elapsed_ms
 
         timings_ms["total"] = sum(timings_ms.values())

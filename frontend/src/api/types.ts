@@ -33,6 +33,7 @@ export type PipelineStage =
   | 'loading_model'
   | 'extracting_audio'
   | 'transcribing'
+  | 'aligning'
   | 'writing_subtitles'
   | 'completed'
   | 'failed'
@@ -41,6 +42,7 @@ export interface TimingsMs {
   model_load?: number
   audio_extract?: number
   transcribe?: number
+  align?: number
   srt_write?: number
   total?: number
 }

@@ -7,6 +7,7 @@ const STAGE_LABELS: Record<string, string> = {
   loading_model: 'Loading model',
   extracting_audio: 'Extracting audio',
   transcribing: 'Transcribing',
+  aligning: 'Aligning',
   writing_subtitles: 'Writing subtitles',
   completed: 'Completed',
   failed: 'Failed',

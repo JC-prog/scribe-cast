@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-09
+
+### Changed
+
+- **Breaking:** the transcription engine is now [WhisperX](https://github.com/m-bain/whisperX) instead of plain faster-whisper — batched ASR followed by real wav2vec2 forced alignment, producing meaningfully tighter subtitle timestamps than v1.1.0's word-boundary trimming (which stays as a stepping stone in history, superseded here). New pipeline stage: `aligning`, between `transcribing` and `writing_subtitles`.
+- `app/core/model_manager.py` now holds two LRU caches: ASR models keyed by `(model_size, device, compute_type)` as before, plus a new one for wav2vec2 alignment models keyed by `(language, device)`.
+- VAD explicitly set to `vad_method="silero"` (WhisperX defaults to a gated `pyannote` model requiring a Hugging Face token) — keeps the "no HF account needed" property of the core transcription path. Diarization, a separate opt-in WhisperX feature that does need a token, is not used.
+- Worker image now installs the full `torch`/`torchaudio`/`pyannote-audio`/`transformers` stack (`whisperx`'s dependencies) instead of just `faster-whisper`/`ctranslate2` — a real, accepted image-size and CPU-inference-speed cost on every install, including CPU-only hosts, in exchange for the alignment quality improvement. `nvidia-cublas-cu12`/`nvidia-cudnn-cu12` are no longer pinned explicitly in `requirements-worker.txt`; `torch`'s own dependency resolution is strict about exact companion versions and now drives them.
+- `docker-compose.yml`'s worker service sets `TORCH_HOME=/app/model_cache/torch` so WhisperX's Silero VAD and wav2vec2 alignment model downloads land in the existing persisted `model_cache` volume instead of re-downloading on every container recreate.
+
 ## [1.1.0] - 2026-08-09
 
 ### Changed

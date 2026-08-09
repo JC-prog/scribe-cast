@@ -37,13 +37,13 @@ Creates `.env` from `.env.example`, `data/`/`logs/` directories, a backend `.ven
 ```bash
 cd backend
 python -m venv .venv
-./.venv/Scripts/pip install -r requirements-dev.txt   # includes faster-whisper/ctranslate2, needed to mock WhisperModel in tests
+./.venv/Scripts/pip install -r requirements-dev.txt   # includes whisperx (torch/faster-whisper/ctranslate2), needed to mock its ASR/align models in tests
 ./.venv/Scripts/python -m pytest
 ```
 
 Or, once `scripts/setup-dev` has been run once: `scripts/test.sh` (or `scripts\test.ps1`).
 
-Tests are hermetic — no real Redis, ffmpeg, or model download/inference is required. External calls are mocked (`subprocess.run` for ffmpeg, `WhisperModel` for the model, `fakeredis` for the queue layer in API tests).
+Tests are hermetic — no real Redis, ffmpeg, or model download/inference is required. External calls are mocked (`subprocess.run` for ffmpeg, `whisperx.load_model`/`whisperx.align` for the ASR/alignment models, `fakeredis` for the queue layer in API tests).
 
 To run the API and worker outside Docker, you need a local Redis and ffmpeg on `PATH`:
 
@@ -88,4 +88,4 @@ These create a throwaway `.docs-venv/` and install `docs/requirements.txt` into 
 ## Conventions
 
 - **Commit messages** follow [Conventional Commits](https://www.conventionalcommits.org/): `feat`, `fix`, `test`, `docs`, `chore`, scoped like `feat(backend): ...`.
-- **Layering**: HTTP routes stay thin; business/ML logic lives in `core/`; queue plumbing lives in `worker/`. Routes reach the worker only through `task_names.py` string references, never by importing `worker/tasks.py` directly (see [Architecture](architecture.md#why-the-api-never-imports-faster-whisper)).
+- **Layering**: HTTP routes stay thin; business/ML logic lives in `core/`; queue plumbing lives in `worker/`. Routes reach the worker only through `task_names.py` string references, never by importing `worker/tasks.py` directly (see [Architecture](architecture.md#why-the-api-never-imports-the-ml-stack)).

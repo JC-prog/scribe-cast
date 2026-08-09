@@ -3,25 +3,13 @@
 # break with "No video formats found" errors — keep this reasonably current
 # rather than pinning to whatever was latest when this was written.
 yt-dlp==2026.7.4
-faster-whisper==1.1.0
-# ctranslate2 4.5.0's manylinux wheel fails to load on some newer kernels
-# ("cannot enable executable stack ... Invalid argument" from libctranslate2.so);
-# 4.8.1 is a known-working version that doesn't hit this. Also as of this
-# version ctranslate2 no longer imports the now-deprecated pkg_resources at
-# module load time (an issue on 4.5.0).
-ctranslate2==4.8.1
-# ctranslate2 does not declare these as install dependencies (pip show
-# ctranslate2 lists only numpy/pyyaml/setuptools). Without them, DEVICE=cuda
-# fails at the first real inference call (not model load - construction
-# never touches cuBLAS) with "Library libcublas.so.12 is not found or
-# cannot be loaded". Installing them isn't sufficient on its own either:
-# the Dockerfile's worker stage also sets LD_LIBRARY_PATH to their
-# site-packages lib dirs, since pip-installed .so files aren't on the
-# default dynamic linker search path. Versions pinned to what was verified
-# working (real transcribe() call, not just model construction) against
-# ctranslate2 4.8.1.
-nvidia-cublas-cu12==12.9.2.10
-nvidia-cudnn-cu12==9.24.0.43
+# whisperx pulls its own compatible faster-whisper/ctranslate2/torch stack,
+# including the nvidia-cublas-cu12/nvidia-cudnn-cu12 versions torch itself
+# needs (which do NOT match the versions ctranslate2-alone needed pre-2.0 -
+# torch is strict about exact companion package versions). Exact resolved
+# versions are pinned below from a real `pip install` against this
+# requirements file, not guessed.
+whisperx==3.8.6
 # faster-whisper's utils module imports requests directly but doesn't declare
 # it, relying on a transitive pull from huggingface-hub that newer
 # huggingface-hub releases no longer provide. Pin explicitly.

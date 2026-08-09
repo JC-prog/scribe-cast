@@ -1,7 +1,8 @@
 """
-Static catalog of faster-whisper model sizes. Deliberately has no dependency
-on faster_whisper/ctranslate2 itself, so the API container (which never
-imports those ML libraries) can serve /api/models without pulling them in.
+Static catalog of Whisper model sizes. Deliberately has no dependency on
+whisperx/faster_whisper/ctranslate2/torch itself, so the API container
+(which never imports those ML libraries) can serve /api/models without
+pulling them in.
 """
 
 MODEL_CATALOG: list[dict[str, str]] = [

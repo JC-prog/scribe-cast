@@ -32,6 +32,11 @@ services:
       REDIS_URL: redis://redis:6379/0
       DEVICE: ${DEVICE:-auto}
       COMPUTE_TYPE: ${COMPUTE_TYPE:-}
+      # whisperx's Silero VAD and wav2vec2 alignment models download via
+      # torch.hub, which defaults to ~/.cache/torch - outside the
+      # model_cache volume below, so they'd re-download on every container
+      # recreate without this.
+      TORCH_HOME: /app/model_cache/torch
     volumes:
       - ./logs:/app/logs
       - uploads_data:/app/uploads
