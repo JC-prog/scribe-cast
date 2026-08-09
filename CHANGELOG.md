@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-08-09
+
+### Added
+
+- Admin panel (new sidebar tab) for tuning WhisperX behavior and subtitle formatting at runtime, without a container restart: `batch_size`, `chunk_size`, `beam_size`, `temperature`, `condition_on_previous_text`, VAD method (`silero`/`pyannote`, with a Hugging Face token field for the latter), and the `max_chars_per_cue`/`max_seconds_per_cue` caps from the previous release. Backed by `GET`/`PATCH`/`POST reset` `/api/admin/settings`, persisted in Redis. Defaults match what was previously hardcoded, so out-of-the-box behavior is unchanged until the panel is actually used. `hf_token` is never echoed back once set — only a `hf_token_set` boolean is exposed, and partial updates leave it untouched unless a new value (or an explicit empty string, to clear it) is sent.
+
 ## [2.2.0] - 2026-08-09
 
 ### Fixed
