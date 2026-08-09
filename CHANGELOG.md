@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-09
+
+### Changed
+
+- Subtitle cue timestamps are now trimmed to the first/last actual spoken word in each segment (faster-whisper's `word_timestamps=True`), instead of Whisper's raw segment-level `start`/`end`, which drift around silence. No new dependencies.
+
 ## [1.0.0] - 2026-08-09
 
 ### Added

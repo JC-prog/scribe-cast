@@ -1,6 +1,6 @@
 # scribe-cast
 
-![Version](https://img.shields.io/badge/version-1.0.0-7c3aed)
+![Version](https://img.shields.io/badge/version-1.1.0-7c3aed)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 ![Node](https://img.shields.io/badge/node-22-green)
