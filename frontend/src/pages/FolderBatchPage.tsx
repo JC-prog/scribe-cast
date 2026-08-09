@@ -6,6 +6,8 @@ import { JobProgress } from '../components/JobProgress'
 import { LanguageSelector } from '../components/LanguageSelector'
 import { ModelLoadWarningBanner } from '../components/ModelLoadWarningBanner'
 import { ModelSelector } from '../components/ModelSelector'
+import { Spinner } from '../components/Spinner'
+import { TranslateToggle } from '../components/TranslateToggle'
 import { VideoSelectionList } from '../components/VideoSelectionList'
 import { useBatchPolling } from '../hooks/useJobPolling'
 import { useLanguages } from '../hooks/useLanguages'
@@ -28,6 +30,7 @@ export function FolderBatchPage() {
   const [folderPath, setFolderPath] = useState('')
   const [modelSize, setModelSize] = useState('')
   const [language, setLanguage] = useState('auto')
+  const [translate, setTranslate] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
   const [videos, setVideos] = useState<DiscoveredVideo[]>([])
@@ -48,7 +51,7 @@ export function FolderBatchPage() {
     if (!validationResult.ok || selected.size === 0) return
 
     setBatchError(null)
-    startFolderBatch(folderPath, Array.from(selected), modelSize, language)
+    startFolderBatch(folderPath, Array.from(selected), modelSize, language, translate)
       .then((res) => setBatchId(res.batch_id))
       .catch((err) => setBatchError(err instanceof Error ? err.message : 'Failed to start batch'))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -140,6 +143,8 @@ export function FolderBatchPage() {
               />
             </div>
 
+            <TranslateToggle checked={translate} onChange={setTranslate} disabled={busy} />
+
             {validationResult && !validationResult.ok && (
               <ModelLoadWarningBanner
                 variant="error"
@@ -163,6 +168,7 @@ export function FolderBatchPage() {
               onClick={handleStartBatch}
               disabled={selected.size === 0 || busy}
             >
+              {busy && <Spinner />}
               {validating ? 'Checking model…' : `Transcribe ${selected.size} video${selected.size === 1 ? '' : 's'}`}
             </button>
           </div>

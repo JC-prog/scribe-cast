@@ -5,6 +5,8 @@ import { JobProgress } from '../components/JobProgress'
 import { LanguageSelector } from '../components/LanguageSelector'
 import { ModelLoadWarningBanner } from '../components/ModelLoadWarningBanner'
 import { ModelSelector } from '../components/ModelSelector'
+import { Spinner } from '../components/Spinner'
+import { TranslateToggle } from '../components/TranslateToggle'
 import { UrlInput } from '../components/UrlInput'
 import { useJobPolling } from '../hooks/useJobPolling'
 import { useLanguages } from '../hooks/useLanguages'
@@ -25,6 +27,7 @@ export function UrlPage() {
   const [url, setUrl] = useState('')
   const [modelSize, setModelSize] = useState('')
   const [language, setLanguage] = useState('auto')
+  const [translate, setTranslate] = useState(false)
   const [pendingSubmit, setPendingSubmit] = useState(false)
   const [urlJobId, setUrlJobId] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -43,7 +46,7 @@ export function UrlPage() {
     if (!validationResult.ok || !url.trim()) return
 
     setSubmitError(null)
-    transcribeUrl(url.trim(), modelSize, language)
+    transcribeUrl(url.trim(), modelSize, language, translate)
       .then((res) => {
         setOverlayDismissed(false)
         setUrlJobId(res.job_id)
@@ -95,6 +98,8 @@ export function UrlPage() {
             />
           </div>
 
+          <TranslateToggle checked={translate} onChange={setTranslate} disabled={busy} />
+
           {validationResult && !validationResult.ok && (
             <ModelLoadWarningBanner
               variant="error"
@@ -118,6 +123,7 @@ export function UrlPage() {
             onClick={handleTranscribeClick}
             disabled={!url.trim() || !modelSize || busy}
           >
+            {busy && <Spinner />}
             {validating ? 'Checking model…' : jobInFlight ? 'Transcribing…' : 'Transcribe'}
           </button>
         </div>
@@ -140,6 +146,7 @@ export function UrlPage() {
           filename={job.meta.source_filename}
           elapsedMs={job.meta.timings_ms?.total ?? 0}
           detectedLanguage={job.meta.detected_language}
+          translated={job.meta.translate}
           onClose={() => setOverlayDismissed(true)}
         />
       )}

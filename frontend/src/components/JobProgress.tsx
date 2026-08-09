@@ -1,5 +1,7 @@
+import { CheckCircle2, XCircle } from 'lucide-react'
 import type { JobStatusResponse } from '../api/types'
 import { formatDuration } from '../utils/format'
+import { Spinner } from './Spinner'
 
 const STAGE_LABELS: Record<string, string> = {
   queued: 'Queued',
@@ -23,7 +25,13 @@ export function JobProgress({ job, label }: Props) {
     return (
       <div className="job-progress">
         {label && <div className="job-progress-label">{label}</div>}
-        <div className="job-progress-stage">Starting…</div>
+        <div className="job-progress-stage">
+          <Spinner />
+          Starting…
+        </div>
+        <div className="job-progress-bar-track">
+          <div className="job-progress-bar-fill" />
+        </div>
       </div>
     )
   }
@@ -37,8 +45,16 @@ export function JobProgress({ job, label }: Props) {
   return (
     <div className={`job-progress${isFailed ? ' job-progress-failed' : ''}`}>
       {label && <div className="job-progress-label">{label}</div>}
-      <div className="job-progress-stage">
+      <div className={`job-progress-stage${isDone ? ' job-progress-stage-success' : ''}`}>
+        {isDone && <CheckCircle2 size={15} aria-hidden="true" />}
+        {isFailed && <XCircle size={15} aria-hidden="true" />}
+        {!isDone && !isFailed && <Spinner />}
         {isDone ? 'Done' : isFailed ? `Failed: ${job.error ?? job.meta.error ?? 'Unknown error'}` : stageLabel}
+      </div>
+      <div className="job-progress-bar-track">
+        <div
+          className={`job-progress-bar-fill${isDone ? ' job-progress-bar-done' : ''}${isFailed ? ' job-progress-bar-error' : ''}`}
+        />
       </div>
       {isDone && totalMs !== undefined && <div className="job-progress-time">Took {formatDuration(totalMs)}</div>}
     </div>

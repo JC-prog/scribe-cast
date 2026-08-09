@@ -52,11 +52,13 @@ export function uploadVideo(
   file: File,
   modelSize: string,
   language: string,
+  translate: boolean,
 ): Promise<UploadResponse> {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('model_size', modelSize)
   formData.append('language', language)
+  formData.append('translate', String(translate))
   return request('/api/upload', { method: 'POST', body: formData })
 }
 
@@ -64,8 +66,9 @@ export function transcribeUrl(
   url: string,
   modelSize: string,
   language: string,
+  translate: boolean,
 ): Promise<UploadResponse> {
-  return postJson('/api/url/transcribe', { url, model_size: modelSize, language })
+  return postJson('/api/url/transcribe', { url, model_size: modelSize, language, translate })
 }
 
 export function scanFolder(folderPath: string): Promise<FolderScanResponse> {
@@ -77,12 +80,14 @@ export function startFolderBatch(
   videoPaths: string[],
   modelSize: string,
   language: string,
+  translate: boolean,
 ): Promise<FolderTranscribeResponse> {
   return postJson('/api/folder/transcribe', {
     folder_path: folderPath,
     video_paths: videoPaths,
     model_size: modelSize,
     language,
+    translate,
   })
 }
 

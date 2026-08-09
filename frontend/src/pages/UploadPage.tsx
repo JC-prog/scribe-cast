@@ -6,6 +6,8 @@ import { JobProgress } from '../components/JobProgress'
 import { LanguageSelector } from '../components/LanguageSelector'
 import { ModelLoadWarningBanner } from '../components/ModelLoadWarningBanner'
 import { ModelSelector } from '../components/ModelSelector'
+import { Spinner } from '../components/Spinner'
+import { TranslateToggle } from '../components/TranslateToggle'
 import { useJobPolling } from '../hooks/useJobPolling'
 import { useLanguages } from '../hooks/useLanguages'
 import { useModelValidation } from '../hooks/useModelValidation'
@@ -25,6 +27,7 @@ export function UploadPage() {
   const [file, setFile] = useState<File | null>(null)
   const [modelSize, setModelSize] = useState('')
   const [language, setLanguage] = useState('auto')
+  const [translate, setTranslate] = useState(false)
   const [pendingUpload, setPendingUpload] = useState(false)
   const [uploadJobId, setUploadJobId] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -43,7 +46,7 @@ export function UploadPage() {
     if (!validationResult.ok || !file) return
 
     setUploadError(null)
-    uploadVideo(file, modelSize, language)
+    uploadVideo(file, modelSize, language, translate)
       .then((res) => {
         setOverlayDismissed(false)
         setUploadJobId(res.job_id)
@@ -95,6 +98,8 @@ export function UploadPage() {
             />
           </div>
 
+          <TranslateToggle checked={translate} onChange={setTranslate} disabled={busy} />
+
           {validationResult && !validationResult.ok && (
             <ModelLoadWarningBanner
               variant="error"
@@ -118,6 +123,7 @@ export function UploadPage() {
             onClick={handleTranscribeClick}
             disabled={!file || !modelSize || busy}
           >
+            {busy && <Spinner />}
             {validating ? 'Checking model…' : jobInFlight ? 'Transcribing…' : 'Transcribe'}
           </button>
         </div>
@@ -140,6 +146,7 @@ export function UploadPage() {
           filename={file?.name}
           elapsedMs={job.meta.timings_ms?.total ?? 0}
           detectedLanguage={job.meta.detected_language}
+          translated={job.meta.translate}
           onClose={() => setOverlayDismissed(true)}
         />
       )}

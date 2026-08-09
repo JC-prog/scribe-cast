@@ -1,3 +1,5 @@
+import { Spinner } from './Spinner'
+
 interface Props {
   value: string
   onChange: (value: string) => void
@@ -24,6 +26,7 @@ export function FolderPathInput({ value, onChange, onScan, scanning, disabled }:
           onClick={onScan}
           disabled={disabled || scanning || !value.trim()}
         >
+          {scanning && <Spinner />}
           {scanning ? 'Scanning…' : 'Scan'}
         </button>
       </div>

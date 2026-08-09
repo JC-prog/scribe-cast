@@ -1,3 +1,4 @@
+import { CheckCircle2, Download, X } from 'lucide-react'
 import { downloadUrl } from '../api/client'
 import { formatDuration } from '../utils/format'
 
@@ -6,21 +7,32 @@ interface Props {
   filename?: string
   elapsedMs: number
   detectedLanguage?: string | null
+  translated?: boolean
   onClose: () => void
 }
 
-export function CompletionOverlay({ jobId, filename, elapsedMs, detectedLanguage, onClose }: Props) {
+export function CompletionOverlay({ jobId, filename, elapsedMs, detectedLanguage, translated, onClose }: Props) {
   return (
     <div className="overlay-backdrop" onClick={onClose}>
       <div className="overlay-card" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="overlay-close" onClick={onClose} aria-label="Close">
+          <X size={16} />
+        </button>
+        <CheckCircle2 className="overlay-success-icon" size={36} aria-hidden="true" />
         <h2>Transcription complete</h2>
         {filename && <p className="overlay-filename">{filename}</p>}
         <p className="overlay-time">
           Took <strong>{formatDuration(elapsedMs)}</strong>
         </p>
-        {detectedLanguage && <p className="overlay-language">Detected language: {detectedLanguage}</p>}
+        {detectedLanguage && (
+          <p className="overlay-language">
+            Detected language: {detectedLanguage}
+            {translated && ' (translated to English)'}
+          </p>
+        )}
         <div className="overlay-actions">
           <a className="button button-primary" href={downloadUrl(jobId)} download>
+            <Download size={15} aria-hidden="true" />
             Download subtitle
           </a>
           <button type="button" className="button" onClick={onClose}>

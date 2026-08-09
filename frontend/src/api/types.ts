@@ -51,6 +51,7 @@ export interface JobMeta {
   stage?: PipelineStage
   model_size?: string
   language?: string | null
+  translate?: boolean
   detected_language?: string | null
   source_filename?: string
   source_url?: string | null
