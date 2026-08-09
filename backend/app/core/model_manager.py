@@ -7,13 +7,28 @@ import whisperx
 
 from app.config import settings
 from app.core.device import DeviceRequest, resolve_device
+from app.core.runtime_settings import load_runtime_settings
 from app.logging_config import get_logger, log_event
 from app.utils.timing import Stopwatch
 
 logger = get_logger("scribecast.model_manager")
 
-CacheKey = tuple[str, str, str]  # (model_size, device, compute_type)
+# (model_size, device, compute_type, settings_fingerprint) - the fingerprint
+# covers whatever RuntimeSettings fields affect whisperx.load_model()'s
+# construction (vad_method, beam_size, temperature,
+# condition_on_previous_text), so a settings change naturally invalidates a
+# warm cache entry instead of it silently keeping stale behavior.
+CacheKey = tuple[str, str, str, tuple]
 AlignCacheKey = tuple[str, str]  # (language, device)
+
+
+def _settings_fingerprint(runtime_settings) -> tuple:
+    return (
+        runtime_settings.vad_method,
+        runtime_settings.beam_size,
+        runtime_settings.temperature,
+        runtime_settings.condition_on_previous_text,
+    )
 
 
 @dataclass
@@ -46,7 +61,13 @@ class ModelManager:
 
     def load(self, model_size: str, device_request: DeviceRequest = "auto") -> tuple:
         resolution = resolve_device(device_request, compute_type_override=settings.compute_type)
-        cache_key: CacheKey = (model_size, resolution.device, resolution.compute_type)
+        runtime_settings = load_runtime_settings()
+        cache_key: CacheKey = (
+            model_size,
+            resolution.device,
+            resolution.compute_type,
+            _settings_fingerprint(runtime_settings),
+        )
 
         with self._lock:
             if cache_key in self._cache:
@@ -60,16 +81,34 @@ class ModelManager:
                     "cache_hit": True,
                 }
 
+            asr_options = {}
+            if runtime_settings.beam_size is not None:
+                asr_options["beam_size"] = runtime_settings.beam_size
+            if runtime_settings.temperature is not None:
+                asr_options["temperature"] = runtime_settings.temperature
+            if runtime_settings.condition_on_previous_text is not None:
+                asr_options["condition_on_previous_text"] = runtime_settings.condition_on_previous_text
+
             with Stopwatch() as stopwatch:
-                # vad_method="silero" is deliberate: whisperx defaults to a
-                # gated pyannote VAD model requiring a Hugging Face token.
-                # Silero is ungated and fully local - keeps the "no HF
-                # account needed" property of the core transcription path.
+                # vad_method defaults to "silero" (see RuntimeSettings) as
+                # the lower-friction choice. Note: verified against a real
+                # run that in whisperx 3.8.6, "pyannote" VAD actually loads
+                # its checkpoint bundled in the whisperx package itself
+                # (whisperx/assets/pytorch_model.bin), not a live gated HF
+                # download - use_auth_token had no effect on VAD in that
+                # test (a bogus token still loaded fine). Still passed
+                # through here since that's an implementation detail of the
+                # currently-pinned whisperx version, not a documented
+                # contract - a future version, or other pyannote-gated
+                # features (e.g. diarization, not implemented here), may
+                # depend on it for real.
                 model = whisperx.load_model(
                     model_size,
                     resolution.device,
                     compute_type=resolution.compute_type,
-                    vad_method="silero",
+                    vad_method=runtime_settings.vad_method,
+                    asr_options=asr_options or None,
+                    use_auth_token=runtime_settings.hf_token if runtime_settings.vad_method == "pyannote" else None,
                     download_root=str(settings.model_cache_dir),
                 )
 
@@ -83,6 +122,7 @@ class ModelManager:
                 model=model_size,
                 device=resolution.device,
                 compute_type=resolution.compute_type,
+                vad_method=runtime_settings.vad_method,
                 duration_ms=round(stopwatch.elapsed_ms, 1),
                 fallback_occurred=resolution.fallback_occurred,
             )

@@ -3,14 +3,13 @@ from pathlib import Path
 
 import whisperx
 
+from app.core.runtime_settings import load_runtime_settings
 from app.core.srt_writer import SubtitleSegment
 from app.core.subtitle_segmenter import segment_aligned_output, segment_raw_output
 from app.logging_config import get_logger, log_event
 from app.utils.timing import Stopwatch
 
 logger = get_logger("scribecast.transcriber")
-
-_BATCH_SIZE = 16
 
 
 @dataclass
@@ -35,9 +34,16 @@ def transcribe(model, audio_path: Path, language: str | None, task: str = "trans
     result - the Stopwatch times the single blocking call rather than a
     generator iteration.
     """
+    runtime_settings = load_runtime_settings()
     with Stopwatch() as stopwatch:
         audio = whisperx.load_audio(str(audio_path))
-        result = model.transcribe(audio, batch_size=_BATCH_SIZE, language=language, task=task)
+        result = model.transcribe(
+            audio,
+            batch_size=runtime_settings.batch_size,
+            language=language,
+            task=task,
+            chunk_size=runtime_settings.chunk_size,
+        )
 
     log_event(
         logger,
@@ -65,7 +71,10 @@ def to_subtitle_segments(transcription: TranscriptionResult) -> list[SubtitleSeg
     readable cues, interpolating word timing proportionally within each
     segment since there's no real word-level timing here.
     """
-    return segment_raw_output(transcription.segments)
+    runtime_settings = load_runtime_settings()
+    return segment_raw_output(
+        transcription.segments, runtime_settings.max_chars_per_cue, runtime_settings.max_seconds_per_cue
+    )
 
 
 def align(transcription: TranscriptionResult, audio_path: Path, align_model, metadata, device: str) -> AlignmentResult:
@@ -77,12 +86,15 @@ def align(transcription: TranscriptionResult, audio_path: Path, align_model, met
     speech with no internal breaks, which is exactly what produces a
     screen-covering wall of subtitle text without this step.
     """
+    runtime_settings = load_runtime_settings()
     with Stopwatch() as stopwatch:
         audio = whisperx.load_audio(str(audio_path))
         aligned = whisperx.align(
             transcription.segments, align_model, metadata, audio, device, return_char_alignments=False
         )
-        segments = segment_aligned_output(aligned["segments"])
+        segments = segment_aligned_output(
+            aligned["segments"], runtime_settings.max_chars_per_cue, runtime_settings.max_seconds_per_cue
+        )
 
     log_event(
         logger,

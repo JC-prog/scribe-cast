@@ -129,3 +129,28 @@ def test_pack_words_into_cues_respects_explicit_caps():
 def test_empty_input_produces_no_cues():
     assert segment_aligned_output([]) == []
     assert segment_raw_output([]) == []
+
+
+def test_segment_aligned_output_respects_custom_caps():
+    words = [_aligned_word("one", 0.0, 0.5), _aligned_word("two", 0.5, 1.0), _aligned_word("three", 1.0, 1.5)]
+    aligned_segments = [{"start": 0.0, "end": 1.5, "text": "one two three", "words": words}]
+
+    # Well within the module defaults, so it would normally stay one cue.
+    default_cues = segment_aligned_output(aligned_segments)
+    assert len(default_cues) == 1
+
+    # A much smaller custom cap forces a split.
+    custom_cues = segment_aligned_output(aligned_segments, max_chars=8, max_seconds=100.0)
+    assert len(custom_cues) > 1
+    assert all(len(cue.text) <= 8 for cue in custom_cues)
+
+
+def test_segment_raw_output_respects_custom_caps():
+    raw_segments = [{"start": 0.0, "end": 4.0, "text": "one two three four"}]
+
+    default_cues = segment_raw_output(raw_segments)
+    assert len(default_cues) == 1
+
+    custom_cues = segment_raw_output(raw_segments, max_chars=8, max_seconds=100.0)
+    assert len(custom_cues) > 1
+    assert all(len(cue.text) <= 8 for cue in custom_cues)

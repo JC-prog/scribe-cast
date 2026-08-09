@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import download, folder, jobs, languages, models, upload, url, version
+from app.api.routes import admin, download, folder, jobs, languages, models, upload, url, version
 from app.config import settings
 from app.core.errors import (
     AudioExtractionError,
@@ -31,6 +31,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(version.router)
+    app.include_router(admin.router)
     app.include_router(models.router)
     app.include_router(languages.router)
     app.include_router(upload.router)

@@ -92,19 +92,23 @@ def _flush(words: list[TimedWord]) -> SubtitleSegment:
     return SubtitleSegment(start=words[0].start, end=words[-1].end, text=" ".join(w.text for w in words))
 
 
-def segment_aligned_output(aligned_segments: list[dict]) -> list[SubtitleSegment]:
+def segment_aligned_output(
+    aligned_segments: list[dict], max_chars: int = MAX_CHARS_PER_CUE, max_seconds: float = MAX_SECONDS_PER_CUE
+) -> list[SubtitleSegment]:
     """Packs each original segment's words into cues independently (never merging across
     segments) - segment boundaries already mark a natural pause, which is a cue break
     worth keeping; the cap only kicks in when a single segment is itself too long."""
     cues: list[SubtitleSegment] = []
     for segment in aligned_segments:
-        cues.extend(_pack_words_into_cues(_words_from_one_aligned_segment(segment)))
+        cues.extend(_pack_words_into_cues(_words_from_one_aligned_segment(segment), max_chars, max_seconds))
     return cues
 
 
-def segment_raw_output(raw_segments: list[dict]) -> list[SubtitleSegment]:
+def segment_raw_output(
+    raw_segments: list[dict], max_chars: int = MAX_CHARS_PER_CUE, max_seconds: float = MAX_SECONDS_PER_CUE
+) -> list[SubtitleSegment]:
     cues: list[SubtitleSegment] = []
     for segment in raw_segments:
         words = _interpolate_words(segment["start"], segment["end"], segment["text"].split())
-        cues.extend(_pack_words_into_cues(words))
+        cues.extend(_pack_words_into_cues(words, max_chars, max_seconds))
     return cues
