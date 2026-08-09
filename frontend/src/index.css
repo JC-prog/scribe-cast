@@ -543,6 +543,12 @@ input[type='text']:disabled {
   border-color: var(--danger-border);
 }
 
+.banner-success {
+  color: var(--success);
+  background: var(--success-bg);
+  border-color: var(--success-border);
+}
+
 .job-progress {
   border: 1px solid var(--border);
   border-radius: var(--radius);

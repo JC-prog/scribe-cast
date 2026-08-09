@@ -5,6 +5,8 @@ import type {
   JobStatusResponse,
   LanguageInfo,
   ModelInfo,
+  RuntimeSettings,
+  RuntimeSettingsUpdate,
   UploadResponse,
   ValidateModelResponse,
 } from './types'
@@ -31,6 +33,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 function postJson<T>(path: string, payload: unknown): Promise<T> {
   return request<T>(path, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+function patchJson<T>(path: string, payload: unknown): Promise<T> {
+  return request<T>(path, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
@@ -101,4 +111,16 @@ export function getBatchStatus(batchId: string): Promise<BatchStatusResponse> {
 
 export function downloadUrl(jobId: string): string {
   return `/api/download/${jobId}`
+}
+
+export function getRuntimeSettings(): Promise<RuntimeSettings> {
+  return request('/api/admin/settings')
+}
+
+export function updateRuntimeSettings(update: RuntimeSettingsUpdate): Promise<RuntimeSettings> {
+  return patchJson('/api/admin/settings', update)
+}
+
+export function resetRuntimeSettings(): Promise<RuntimeSettings> {
+  return postJson('/api/admin/settings/reset', {})
 }

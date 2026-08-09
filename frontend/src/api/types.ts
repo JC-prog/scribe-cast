@@ -91,3 +91,29 @@ export interface FolderTranscribeResponse {
   batch_id: string
   job_ids: string[]
 }
+
+export type VadMethod = 'silero' | 'pyannote'
+
+export interface RuntimeSettings {
+  batch_size: number
+  chunk_size: number
+  beam_size: number | null
+  temperature: number | null
+  condition_on_previous_text: boolean | null
+  vad_method: VadMethod
+  hf_token_set: boolean
+  max_chars_per_cue: number
+  max_seconds_per_cue: number
+}
+
+export interface RuntimeSettingsUpdate {
+  batch_size?: number
+  chunk_size?: number
+  beam_size?: number | null
+  temperature?: number | null
+  condition_on_previous_text?: boolean | null
+  vad_method?: VadMethod
+  hf_token?: string
+  max_chars_per_cue?: number
+  max_seconds_per_cue?: number
+}
