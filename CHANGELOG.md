@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-08-09
+
+### Fixed
+
+- Subtitle cues could span an entire long stretch of continuous speech as one unbroken block of text (up to ~30s in the translate path, or a full multi-sentence run in the aligned path when there wasn't a long clean pause) — nothing capped cue duration or length before writing the `.srt`. Cues are now packed to a max of ~84 characters / 7 seconds each, using real per-word timing from forced alignment where available and proportional interpolation within each original segment otherwise, so segment boundaries (natural pauses) still stay as cue breaks and only overlong segments actually get split.
+
 ## [2.1.0] - 2026-08-09
 
 ### Added
