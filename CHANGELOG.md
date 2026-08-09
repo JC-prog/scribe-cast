@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-08-09
+
 ### Added
 
 - Recent jobs / history panel (new sidebar tab): `GET /api/jobs` lists jobs across every RQ state (queued, running, finished, failed), most recent first, so a job stays visible and its `.srt` downloadable after the completion overlay is dismissed or the tab is closed. Required a real retention fix alongside the new endpoint - none of the enqueue call sites previously set `result_ttl`/`failure_ttl`, so RQ's default (finished jobs expire after ~500 seconds) meant a "history" view would have gone empty within minutes; jobs now persist for 7 days.
