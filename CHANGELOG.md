@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `GET /api/version`, backed by a new `APP_VERSION` setting, logged at worker startup too — makes "what version is this container actually running" inspectable at runtime instead of having to infer it from commit timestamps vs. container `CREATED` time.
 - `docker-compose.yml`'s `api`/`worker`/`frontend` services now build tagged images (`scribe-cast-worker:2.0.0` etc.) instead of always `:latest`. `scripts/build.*`/`scripts/stack.*` export `VERSION` from the repo-root `VERSION` file before invoking `docker compose`, so the `VERSION` file stays the single source of truth (not duplicated into `.env`). Falls back to `latest`/`0.0.0-dev` if invoked without the scripts.
+- Translate-to-English mode: a `translate` toggle on all three transcription flows, backed by WhisperX's translate task. Forced alignment is skipped when translating (a phoneme-alignment model can't match English output text against non-English source audio), falling back to Whisper's own segment-level timestamps.
+
+### Changed
+
+- The "Language" selector is relabeled "Audio language" with a hint clarifying it's a source-language hint, not a translation target — the previous label was easy to misread as a target-language picker, which actively corrupts transcription when misused (forces the wrong language's phonetics onto the audio).
+- Frontend redesigned around a persistent sidebar nav (replacing the top tab bar), with `lucide-react` icons, real loading spinners, an animated in-flight progress indicator, and motion on panels/pages/the completion overlay.
 
 ## [2.0.0] - 2026-08-09
 
