@@ -21,6 +21,7 @@ class FolderTranscribeRequest(BaseModel):
     video_paths: list[str]
     model_size: str
     language: str
+    translate: bool = False
 
 
 class FolderTranscribeResponse(BaseModel):

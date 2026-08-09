@@ -25,16 +25,18 @@ class AlignmentResult:
     elapsed_ms: float
 
 
-def transcribe(model, audio_path: Path, language: str | None) -> TranscriptionResult:
+def transcribe(model, audio_path: Path, language: str | None, task: str = "transcribe") -> TranscriptionResult:
     """
     Run WhisperX's batched ASR pass. `language` is None for auto-detect,
-    else an ISO code. Unlike faster-whisper's lazy generator, this returns
-    a fully materialized result - the Stopwatch times the single blocking
-    call rather than a generator iteration.
+    else an ISO code. `task="translate"` always translates to English
+    specifically - Whisper has no other target language. Unlike
+    faster-whisper's lazy generator, this returns a fully materialized
+    result - the Stopwatch times the single blocking call rather than a
+    generator iteration.
     """
     with Stopwatch() as stopwatch:
         audio = whisperx.load_audio(str(audio_path))
-        result = model.transcribe(audio, batch_size=_BATCH_SIZE, language=language)
+        result = model.transcribe(audio, batch_size=_BATCH_SIZE, language=language, task=task)
 
     log_event(
         logger,
@@ -48,6 +50,22 @@ def transcribe(model, audio_path: Path, language: str | None) -> TranscriptionRe
     return TranscriptionResult(
         segments=result["segments"], detected_language=result["language"], elapsed_ms=stopwatch.elapsed_ms
     )
+
+
+def to_subtitle_segments(transcription: TranscriptionResult) -> list[SubtitleSegment]:
+    """
+    Maps raw ASR segments straight to SubtitleSegment, bypassing forced
+    alignment. Used for translated output: alignment matches text to audio
+    using a phoneme model for one language, but translated text is English
+    while the audio's actual phonemes are the source language - there's no
+    language for which both would match, so alignment would just produce
+    meaningless timestamps. Segment-level timing (Whisper's own, not
+    word-tightened) is the honest fallback here.
+    """
+    return [
+        SubtitleSegment(start=segment["start"], end=segment["end"], text=segment["text"])
+        for segment in transcription.segments
+    ]
 
 
 def align(transcription: TranscriptionResult, audio_path: Path, align_model, metadata, device: str) -> AlignmentResult:

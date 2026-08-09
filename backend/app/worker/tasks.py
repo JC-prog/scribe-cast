@@ -22,7 +22,13 @@ def _stage_callback(job):
 
 
 def _run_and_record(
-    job, source_video_path: Path, output_srt_path: Path, model_size: str, language: str | None, work_dir: Path
+    job,
+    source_video_path: Path,
+    output_srt_path: Path,
+    model_size: str,
+    language: str | None,
+    work_dir: Path,
+    translate: bool = False,
 ):
     try:
         result = run_transcription_pipeline(
@@ -33,6 +39,7 @@ def _run_and_record(
             language=language,
             work_dir=work_dir,
             device_request=settings.device,
+            translate=translate,
             on_stage_change=_stage_callback(job),
         )
     except Exception as exc:
@@ -58,23 +65,35 @@ def _run_and_record(
     }
 
 
-def task_transcribe_upload(upload_path: str, original_filename: str, model_size: str, language: str | None) -> dict:
+def task_transcribe_upload(
+    upload_path: str, original_filename: str, model_size: str, language: str | None, translate: bool = False
+) -> dict:
     job = get_current_job()
     work_dir = settings.work_dir / job.id
     output_path = settings.results_dir / job.id / Path(original_filename).with_suffix(".srt").name
 
     update_job_meta(
-        job, stage="queued", model_size=model_size, language=language, source_filename=original_filename
+        job,
+        stage="queued",
+        model_size=model_size,
+        language=language,
+        translate=translate,
+        source_filename=original_filename,
     )
 
     try:
-        return _run_and_record(job, Path(upload_path), output_path, model_size, language, work_dir)
+        return _run_and_record(job, Path(upload_path), output_path, model_size, language, work_dir, translate)
     finally:
         Path(upload_path).unlink(missing_ok=True)
 
 
 def task_transcribe_folder_item(
-    video_path: str, output_path: str, model_size: str, language: str | None, batch_id: str | None = None
+    video_path: str,
+    output_path: str,
+    model_size: str,
+    language: str | None,
+    batch_id: str | None = None,
+    translate: bool = False,
 ) -> dict:
     job = get_current_job()
     work_dir = settings.work_dir / job.id
@@ -84,18 +103,19 @@ def task_transcribe_folder_item(
         stage="queued",
         model_size=model_size,
         language=language,
+        translate=translate,
         source_filename=Path(video_path).name,
         batch_id=batch_id,
     )
 
-    return _run_and_record(job, Path(video_path), Path(output_path), model_size, language, work_dir)
+    return _run_and_record(job, Path(video_path), Path(output_path), model_size, language, work_dir, translate)
 
 
-def task_transcribe_url(url: str, model_size: str, language: str | None) -> dict:
+def task_transcribe_url(url: str, model_size: str, language: str | None, translate: bool = False) -> dict:
     job = get_current_job()
     work_dir = settings.work_dir / job.id
 
-    update_job_meta(job, stage="queued", model_size=model_size, language=language, source_url=url)
+    update_job_meta(job, stage="queued", model_size=model_size, language=language, translate=translate, source_url=url)
 
     try:
         update_job_meta(job, stage="downloading")
@@ -108,7 +128,7 @@ def task_transcribe_url(url: str, model_size: str, language: str | None) -> dict
     update_job_meta(job, source_filename=download_result.title)
     output_path = settings.results_dir / job.id / f"{sanitize_filename(download_result.title)}.srt"
 
-    return _run_and_record(job, download_result.path, output_path, model_size, language, work_dir)
+    return _run_and_record(job, download_result.path, output_path, model_size, language, work_dir, translate)
 
 
 def task_validate_model(model_size: str) -> dict:

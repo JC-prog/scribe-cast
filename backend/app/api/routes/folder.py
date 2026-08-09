@@ -68,6 +68,7 @@ def transcribe(
             request.model_size,
             resolved_language,
             batch_id,
+            request.translate,
         )
         job_ids.append(job.id)
 

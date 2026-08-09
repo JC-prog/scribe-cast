@@ -49,7 +49,33 @@ def test_task_transcribe_upload_updates_meta_and_cleans_up_upload(monkeypatch, t
     assert result["detected_language"] == "en"
     assert job.meta["stage"] == "completed"
     assert job.meta["source_filename"] == "video.mp4"
+    assert job.meta["translate"] is False  # default
     assert not upload_path.exists()  # cleaned up
+
+
+def test_task_transcribe_upload_passes_translate_through(monkeypatch, tmp_path):
+    job = FakeJob()
+    monkeypatch.setattr(tasks_module, "get_current_job", lambda: job)
+    captured = {}
+
+    def fake_run_pipeline(**kwargs):
+        captured.update(kwargs)
+        output_path = kwargs["output_srt_path"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("fake srt")
+        return _fake_pipeline_result(output_path)
+
+    monkeypatch.setattr(tasks_module, "run_transcription_pipeline", fake_run_pipeline)
+    monkeypatch.setattr(tasks_module.settings, "results_dir", tmp_path / "results")
+
+    upload_path = tmp_path / "uploads" / "video.mp4"
+    upload_path.parent.mkdir(parents=True, exist_ok=True)
+    upload_path.write_bytes(b"fake video")
+
+    tasks_module.task_transcribe_upload(str(upload_path), "video.mp4", "tiny", "es", translate=True)
+
+    assert captured["translate"] is True
+    assert job.meta["translate"] is True
 
 
 def test_task_transcribe_upload_marks_failed_on_error(monkeypatch, tmp_path):
@@ -95,6 +121,27 @@ def test_task_transcribe_folder_item_writes_sibling_srt(monkeypatch, tmp_path):
     assert result["output_path"] == str(output_path)
     assert job.meta["batch_id"] == "batch-1"
     assert job.meta["stage"] == "completed"
+    assert job.meta["translate"] is False  # default
+
+
+def test_task_transcribe_folder_item_passes_translate_through(monkeypatch, tmp_path):
+    job = FakeJob()
+    monkeypatch.setattr(tasks_module, "get_current_job", lambda: job)
+    captured = {}
+
+    def fake_run_pipeline(**kwargs):
+        captured.update(kwargs)
+        return _fake_pipeline_result(kwargs["output_srt_path"])
+
+    monkeypatch.setattr(tasks_module, "run_transcription_pipeline", fake_run_pipeline)
+
+    video_path = tmp_path / "video.mp4"
+    output_path = tmp_path / "video.srt"
+
+    tasks_module.task_transcribe_folder_item(str(video_path), str(output_path), "tiny", "es", translate=True)
+
+    assert captured["translate"] is True
+    assert job.meta["translate"] is True
 
 
 def test_task_transcribe_url_downloads_then_transcribes(monkeypatch, tmp_path):
@@ -127,7 +174,39 @@ def test_task_transcribe_url_downloads_then_transcribes(monkeypatch, tmp_path):
     assert job.meta["stage"] == "completed"
     assert job.meta["source_url"] == "https://example.com/watch?v=abc"
     assert job.meta["source_filename"] == "My Video"
+    assert job.meta["translate"] is False  # default
     assert "My Video.srt" in result["output_path"]
+
+
+def test_task_transcribe_url_passes_translate_through(monkeypatch, tmp_path):
+    job = FakeJob()
+    monkeypatch.setattr(tasks_module, "get_current_job", lambda: job)
+    monkeypatch.setattr(tasks_module.settings, "results_dir", tmp_path / "results")
+    monkeypatch.setattr(tasks_module.settings, "work_dir", tmp_path / "work")
+
+    downloaded_path = tmp_path / "work" / job.id / "source.webm"
+
+    def fake_download_video(url, work_dir):
+        downloaded_path.parent.mkdir(parents=True, exist_ok=True)
+        downloaded_path.write_bytes(b"fake audio")
+        return DownloadResult(path=downloaded_path, title="My Video", source_url=url)
+
+    monkeypatch.setattr(tasks_module, "download_video", fake_download_video)
+    captured = {}
+
+    def fake_run_pipeline(**kwargs):
+        captured.update(kwargs)
+        output_path = kwargs["output_srt_path"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("fake srt")
+        return _fake_pipeline_result(output_path)
+
+    monkeypatch.setattr(tasks_module, "run_transcription_pipeline", fake_run_pipeline)
+
+    tasks_module.task_transcribe_url("https://example.com/watch?v=abc", "tiny", "es", translate=True)
+
+    assert captured["translate"] is True
+    assert job.meta["translate"] is True
 
 
 def test_task_transcribe_url_marks_failed_on_download_error(monkeypatch, tmp_path):

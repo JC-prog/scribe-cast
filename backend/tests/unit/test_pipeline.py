@@ -25,9 +25,12 @@ class FakeModelManager:
         return "fake-align-model", {}
 
 
-def _fake_transcribe(model, audio_path, language):
+def _fake_transcribe(model, audio_path, language, task="transcribe"):
     assert audio_path.exists()
-    return TranscriptionResult(segments=[{"start": 0.0, "end": 1.0, "text": "hi"}], detected_language="en", elapsed_ms=42.0)
+    text = "hi" if task == "transcribe" else "hi (translated)"
+    return TranscriptionResult(
+        segments=[{"start": 0.0, "end": 1.0, "text": text}], detected_language="en", elapsed_ms=42.0
+    )
 
 
 def _fake_align(transcription, audio_path, align_model, metadata, device):
@@ -81,6 +84,45 @@ def test_pipeline_runs_stages_in_order_and_reports_progress(monkeypatch, tmp_pat
     assert result.timings_ms["total"] == sum(
         v for k, v in result.timings_ms.items() if k != "total"
     )
+
+
+def test_pipeline_skips_alignment_when_translating(monkeypatch, tmp_path):
+    stage_log = []
+
+    def fake_extract_audio(input_path, output_path):
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(b"fake-audio")
+
+    def fail_if_called_align(*args, **kwargs):
+        raise AssertionError("align() must not be called when translate=True")
+
+    monkeypatch.setattr("app.core.pipeline.extract_audio", fake_extract_audio)
+    monkeypatch.setattr("app.core.pipeline.transcribe", _fake_transcribe)
+    monkeypatch.setattr("app.core.pipeline.align", fail_if_called_align)
+
+    def on_stage_change(stage, fields):
+        stage_log.append(stage)
+
+    output_path = tmp_path / "out" / "video.srt"
+    work_dir = tmp_path / "work"
+    manager = FakeModelManager()
+
+    result = run_transcription_pipeline(
+        model_manager=manager,
+        source_video_path=tmp_path / "video.mp4",
+        output_srt_path=output_path,
+        model_size="tiny",
+        language="es",
+        work_dir=work_dir,
+        device_request="cpu",
+        translate=True,
+        on_stage_change=on_stage_change,
+    )
+
+    assert "aligning" not in stage_log
+    assert manager.load_align_calls == []
+    assert "align" not in result.timings_ms
+    assert output_path.read_text().strip().endswith("hi (translated)")
 
 
 def test_pipeline_cleans_up_work_dir_after_success(monkeypatch, tmp_path):

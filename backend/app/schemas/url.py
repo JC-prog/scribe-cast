@@ -7,6 +7,7 @@ class UrlTranscribeRequest(BaseModel):
     url: str
     model_size: str
     language: str
+    translate: bool = False
 
     @field_validator("url")
     @classmethod

@@ -1,3 +1,5 @@
+from rq.job import Job
+
 from app.api.routes import upload as upload_route_module
 
 
@@ -18,6 +20,32 @@ def test_upload_video_enqueues_job_and_writes_file(client, fake_queue, tmp_path,
     uploaded_files = list((tmp_path / "uploads").iterdir())
     assert len(uploaded_files) == 1
     assert uploaded_files[0].read_bytes() == b"fake video bytes"
+
+
+def test_upload_video_defaults_translate_to_false(client, fake_queue, fake_redis_conn, tmp_path, monkeypatch):
+    monkeypatch.setattr(upload_route_module.settings, "uploads_dir", tmp_path / "uploads")
+
+    response = client.post(
+        "/api/upload",
+        files={"file": ("video.mp4", b"data", "video/mp4")},
+        data={"model_size": "tiny", "language": "auto"},
+    )
+
+    job = Job.fetch(response.json()["job_id"], connection=fake_redis_conn)
+    assert job.args[-1] is False
+
+
+def test_upload_video_passes_translate_through(client, fake_queue, fake_redis_conn, tmp_path, monkeypatch):
+    monkeypatch.setattr(upload_route_module.settings, "uploads_dir", tmp_path / "uploads")
+
+    response = client.post(
+        "/api/upload",
+        files={"file": ("video.mp4", b"data", "video/mp4")},
+        data={"model_size": "tiny", "language": "es", "translate": "true"},
+    )
+
+    job = Job.fetch(response.json()["job_id"], connection=fake_redis_conn)
+    assert job.args[-1] is True
 
 
 def test_upload_video_rejects_unknown_model_size(client, tmp_path, monkeypatch):

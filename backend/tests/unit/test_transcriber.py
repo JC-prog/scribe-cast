@@ -1,5 +1,5 @@
 from app.core import transcriber as transcriber_module
-from app.core.transcriber import TranscriptionResult, align, transcribe
+from app.core.transcriber import TranscriptionResult, align, to_subtitle_segments, transcribe
 
 
 class FakeAsrModel:
@@ -7,8 +7,8 @@ class FakeAsrModel:
         self._result = result
         self.calls = []
 
-    def transcribe(self, audio, batch_size, language):
-        self.calls.append({"audio": audio, "batch_size": batch_size, "language": language})
+    def transcribe(self, audio, batch_size, language, task):
+        self.calls.append({"audio": audio, "batch_size": batch_size, "language": language, "task": task})
         return self._result
 
 
@@ -33,6 +33,24 @@ def test_transcribe_passes_batch_size_and_language_through(monkeypatch):
     assert model.calls[0]["batch_size"] == transcriber_module._BATCH_SIZE
 
 
+def test_transcribe_defaults_to_transcribe_task(monkeypatch):
+    monkeypatch.setattr(transcriber_module.whisperx, "load_audio", lambda path: "fake-audio-array")
+    model = FakeAsrModel({"segments": [], "language": "en"})
+
+    transcribe(model, audio_path="audio.wav", language=None)
+
+    assert model.calls[0]["task"] == "transcribe"
+
+
+def test_transcribe_passes_translate_task_through(monkeypatch):
+    monkeypatch.setattr(transcriber_module.whisperx, "load_audio", lambda path: "fake-audio-array")
+    model = FakeAsrModel({"segments": [], "language": "es"})
+
+    transcribe(model, audio_path="audio.wav", language="es", task="translate")
+
+    assert model.calls[0]["task"] == "translate"
+
+
 def test_align_returns_subtitle_segments_from_aligned_output(monkeypatch):
     monkeypatch.setattr(transcriber_module.whisperx, "load_audio", lambda path: "fake-audio-array")
 
@@ -54,3 +72,22 @@ def test_align_returns_subtitle_segments_from_aligned_output(monkeypatch):
     assert result.segments[0].end == 1.6
     assert result.segments[0].text == "hello world"
     assert result.elapsed_ms >= 0
+
+
+def test_to_subtitle_segments_maps_raw_segments_without_alignment():
+    transcription = TranscriptionResult(
+        segments=[
+            {"start": 0.0, "end": 1.2, "text": "hola"},
+            {"start": 1.2, "end": 3.0, "text": "como estas"},
+        ],
+        detected_language="es",
+        elapsed_ms=1.0,
+    )
+
+    segments = to_subtitle_segments(transcription)
+
+    assert len(segments) == 2
+    assert segments[0].start == 0.0
+    assert segments[0].end == 1.2
+    assert segments[0].text == "hola"
+    assert segments[1].text == "como estas"

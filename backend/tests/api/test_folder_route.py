@@ -1,5 +1,7 @@
 import json
 
+from rq.job import Job
+
 
 def _touch(path, content=b"fake"):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -47,6 +49,30 @@ def test_transcribe_enqueues_jobs_and_stores_batch(client, fake_queue, fake_redi
 
     stored = json.loads(fake_redis_conn.get(f"batch:{body['batch_id']}"))
     assert stored == body["job_ids"]
+
+    job = Job.fetch(body["job_ids"][0], connection=fake_redis_conn)
+    assert job.args[-1] is False  # translate defaults to False
+
+
+def test_transcribe_passes_translate_through(client, fake_queue, fake_redis_conn, tmp_path):
+    video_a = tmp_path / "a.mp4"
+    _touch(video_a)
+
+    response = client.post(
+        "/api/folder/transcribe",
+        json={
+            "folder_path": str(tmp_path),
+            "video_paths": [str(video_a)],
+            "model_size": "tiny",
+            "language": "es",
+            "translate": True,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    job = Job.fetch(body["job_ids"][0], connection=fake_redis_conn)
+    assert job.args[-1] is True
 
 
 def test_transcribe_rejects_path_outside_root(client, tmp_path):

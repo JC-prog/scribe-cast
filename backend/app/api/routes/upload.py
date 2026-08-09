@@ -23,6 +23,7 @@ async def upload_video(
     file: UploadFile = File(...),
     model_size: str = Form(...),
     language: str = Form(...),
+    translate: bool = Form(False),
     queue: Queue = Depends(get_queue),
 ) -> UploadResponse:
     if not is_valid_model_size(model_size):
@@ -40,6 +41,8 @@ async def upload_video(
         while chunk := await file.read(_CHUNK_SIZE):
             out_file.write(chunk)
 
-    job = queue.enqueue(TASK_TRANSCRIBE_UPLOAD, str(upload_path), file.filename, model_size, resolved_language)
+    job = queue.enqueue(
+        TASK_TRANSCRIBE_UPLOAD, str(upload_path), file.filename, model_size, resolved_language, translate
+    )
     log_event(logger, "upload_enqueued", job_id=job.id, source_filename=file.filename, model=model_size)
     return UploadResponse(job_id=job.id)

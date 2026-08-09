@@ -7,7 +7,7 @@ from app.core.audio_extractor import extract_audio
 from app.core.device import DeviceRequest
 from app.core.model_manager import ModelManager
 from app.core.srt_writer import write_srt
-from app.core.transcriber import align, transcribe
+from app.core.transcriber import align, to_subtitle_segments, transcribe
 from app.logging_config import get_logger, log_event
 from app.utils.timing import Stopwatch
 
@@ -37,6 +37,7 @@ def run_transcription_pipeline(
     language: str | None,
     work_dir: Path,
     device_request: DeviceRequest = "auto",
+    translate: bool = False,
     on_stage_change: StageCallback = _noop_callback,
 ) -> PipelineResult:
     """
@@ -65,19 +66,29 @@ def run_transcription_pipeline(
         timings_ms["audio_extract"] = stopwatch.elapsed_ms
 
         on_stage_change("transcribing", {})
-        transcription = transcribe(model, audio_path, language)
+        whisper_task = "translate" if translate else "transcribe"
+        transcription = transcribe(model, audio_path, language, task=whisper_task)
         timings_ms["transcribe"] = transcription.elapsed_ms
 
-        on_stage_change("aligning", {})
-        align_model, align_metadata = model_manager.load_align_model(
-            transcription.detected_language, model_info["device_used"]
-        )
-        alignment = align(transcription, audio_path, align_model, align_metadata, model_info["device_used"])
-        timings_ms["align"] = alignment.elapsed_ms
+        if translate:
+            # Forced alignment matches text to audio via a phoneme model
+            # for one language. Translated text is English but the
+            # audio's actual phonemes are the source language - no
+            # language would match both, so alignment is skipped in favor
+            # of Whisper's own (untightened) segment-level timestamps.
+            subtitle_segments = to_subtitle_segments(transcription)
+        else:
+            on_stage_change("aligning", {})
+            align_model, align_metadata = model_manager.load_align_model(
+                transcription.detected_language, model_info["device_used"]
+            )
+            alignment = align(transcription, audio_path, align_model, align_metadata, model_info["device_used"])
+            timings_ms["align"] = alignment.elapsed_ms
+            subtitle_segments = alignment.segments
 
         on_stage_change("writing_subtitles", {"detected_language": transcription.detected_language})
         with Stopwatch() as stopwatch:
-            write_srt(alignment.segments, output_srt_path)
+            write_srt(subtitle_segments, output_srt_path)
         timings_ms["srt_write"] = stopwatch.elapsed_ms
 
         timings_ms["total"] = sum(timings_ms.values())

@@ -22,6 +22,6 @@ def transcribe_url(request: UrlTranscribeRequest, queue: Queue = Depends(get_que
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    job = queue.enqueue(TASK_TRANSCRIBE_URL, request.url, request.model_size, resolved_language)
+    job = queue.enqueue(TASK_TRANSCRIBE_URL, request.url, request.model_size, resolved_language, request.translate)
     log_event(logger, "url_enqueued", job_id=job.id, url=request.url, model=request.model_size)
     return UploadResponse(job_id=job.id)
