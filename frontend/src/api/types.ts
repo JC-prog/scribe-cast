@@ -69,10 +69,17 @@ export interface JobStatusResponse {
   meta: JobMeta
   result: Record<string, unknown> | null
   error: string | null
+  enqueued_at: string | null
+  started_at: string | null
+  ended_at: string | null
 }
 
 export interface BatchStatusResponse {
   batch_id: string
+  jobs: JobStatusResponse[]
+}
+
+export interface JobListResponse {
   jobs: JobStatusResponse[]
 }
 

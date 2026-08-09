@@ -2,6 +2,7 @@ import type {
   BatchStatusResponse,
   FolderScanResponse,
   FolderTranscribeResponse,
+  JobListResponse,
   JobStatusResponse,
   LanguageInfo,
   ModelInfo,
@@ -107,6 +108,10 @@ export function getJobStatus(jobId: string): Promise<JobStatusResponse> {
 
 export function getBatchStatus(batchId: string): Promise<BatchStatusResponse> {
   return request(`/api/jobs/batch/${batchId}`)
+}
+
+export function listJobs(limit = 50): Promise<JobListResponse> {
+  return request(`/api/jobs?limit=${limit}`)
 }
 
 export function downloadUrl(jobId: string): string {

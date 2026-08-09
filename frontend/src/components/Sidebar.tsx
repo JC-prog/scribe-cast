@@ -1,6 +1,6 @@
-import { FolderOpen, Link as LinkIcon, Settings, Upload } from 'lucide-react'
+import { FolderOpen, History, Link as LinkIcon, Settings, Upload } from 'lucide-react'
 
-export type Tab = 'upload' | 'url' | 'folder' | 'admin'
+export type Tab = 'upload' | 'url' | 'folder' | 'history' | 'admin'
 
 interface NavItem {
   tab: Tab
@@ -12,6 +12,7 @@ const NAV_ITEMS: NavItem[] = [
   { tab: 'upload', label: 'Upload video', icon: Upload },
   { tab: 'url', label: 'Paste a link', icon: LinkIcon },
   { tab: 'folder', label: 'Batch folder', icon: FolderOpen },
+  { tab: 'history', label: 'History', icon: History },
   { tab: 'admin', label: 'Admin', icon: Settings },
 ]
 

@@ -1,19 +1,7 @@
 import { CheckCircle2, XCircle } from 'lucide-react'
 import type { JobStatusResponse } from '../api/types'
-import { formatDuration } from '../utils/format'
+import { formatDuration, STAGE_LABELS } from '../utils/format'
 import { Spinner } from './Spinner'
-
-const STAGE_LABELS: Record<string, string> = {
-  queued: 'Queued',
-  downloading: 'Downloading',
-  loading_model: 'Loading model',
-  extracting_audio: 'Extracting audio',
-  transcribing: 'Transcribing',
-  aligning: 'Aligning',
-  writing_subtitles: 'Writing subtitles',
-  completed: 'Completed',
-  failed: 'Failed',
-}
 
 interface Props {
   job: JobStatusResponse | null
