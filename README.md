@@ -68,7 +68,7 @@ Open [http://localhost:5173](http://localhost:5173). See [`docs/getting-started.
 
 ```bash
 scripts/setup-dev.sh   # or scripts\setup-dev.ps1
-scripts/test.sh         # backend unit tests
+scripts/test.sh         # or scripts\test.ps1 - backend unit tests
 cd frontend && npm run dev
 ```
 
