@@ -42,7 +42,14 @@ async def upload_video(
             out_file.write(chunk)
 
     job = queue.enqueue(
-        TASK_TRANSCRIBE_UPLOAD, str(upload_path), file.filename, model_size, resolved_language, translate
+        TASK_TRANSCRIBE_UPLOAD,
+        str(upload_path),
+        file.filename,
+        model_size,
+        resolved_language,
+        translate,
+        result_ttl=settings.job_result_ttl_seconds,
+        failure_ttl=settings.job_result_ttl_seconds,
     )
     log_event(logger, "upload_enqueued", job_id=job.id, source_filename=file.filename, model=model_size)
     return UploadResponse(job_id=job.id)

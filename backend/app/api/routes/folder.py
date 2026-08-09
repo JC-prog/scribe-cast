@@ -69,6 +69,8 @@ def transcribe(
             resolved_language,
             batch_id,
             request.translate,
+            result_ttl=settings.job_result_ttl_seconds,
+            failure_ttl=settings.job_result_ttl_seconds,
         )
         job_ids.append(job.id)
 

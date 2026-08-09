@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     queue_name: str = "transcription"
     batch_ttl_seconds: int = 60 * 60 * 24
+    # How long a finished/failed job's meta+result stay fetchable in Redis -
+    # RQ's own defaults (result_ttl=500s for finished jobs) are far too
+    # short for a history panel to be useful, so this overrides both at
+    # every enqueue() call site.
+    job_result_ttl_seconds: int = 60 * 60 * 24 * 7
 
     # Storage
     uploads_dir: Path = Path("/app/uploads")

@@ -2,6 +2,8 @@ import json
 
 from rq.job import Job
 
+from app.config import settings
+
 
 def _touch(path, content=b"fake"):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -52,6 +54,8 @@ def test_transcribe_enqueues_jobs_and_stores_batch(client, fake_queue, fake_redi
 
     job = Job.fetch(body["job_ids"][0], connection=fake_redis_conn)
     assert job.args[-1] is False  # translate defaults to False
+    assert job.result_ttl == settings.job_result_ttl_seconds
+    assert job.failure_ttl == settings.job_result_ttl_seconds
 
 
 def test_transcribe_passes_translate_through(client, fake_queue, fake_redis_conn, tmp_path):

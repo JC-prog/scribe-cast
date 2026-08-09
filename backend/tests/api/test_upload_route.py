@@ -1,6 +1,21 @@
 from rq.job import Job
 
 from app.api.routes import upload as upload_route_module
+from app.config import settings
+
+
+def test_upload_video_sets_result_and_failure_ttl(client, fake_queue, fake_redis_conn, tmp_path, monkeypatch):
+    monkeypatch.setattr(upload_route_module.settings, "uploads_dir", tmp_path / "uploads")
+
+    response = client.post(
+        "/api/upload",
+        files={"file": ("video.mp4", b"data", "video/mp4")},
+        data={"model_size": "tiny", "language": "auto"},
+    )
+
+    job = Job.fetch(response.json()["job_id"], connection=fake_redis_conn)
+    assert job.result_ttl == settings.job_result_ttl_seconds
+    assert job.failure_ttl == settings.job_result_ttl_seconds
 
 
 def test_upload_video_enqueues_job_and_writes_file(client, fake_queue, tmp_path, monkeypatch):
