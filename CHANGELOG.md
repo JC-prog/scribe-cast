@@ -7,11 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-09
+
 ### Added
 
+- Paste-a-link transcription: paste a YouTube (or any yt-dlp-supported) URL, downloaded audio-only via `yt-dlp` and run through the same transcription pipeline as upload/folder-batch jobs.
 - `docs/` — MkDocs (Material) documentation site: Getting Started, Usage, Features, Architecture, Development.
 - `scripts/` — dev/build/stack/test/docs automation, with bash and PowerShell variants.
 - `VERSION` and this changelog.
+
+### Changed
+
+- Frontend redesigned around a boxed panel/dashboard layout.
+- `app/main.py` moved to `app/api/main.py`, so `worker/` reads as a sibling service rather than a subcomponent of `api/`.
+
+### Fixed
+
+- GPU inference (`DEVICE=cuda`) failed at the first real `transcribe()` call with `Library libcublas.so.12 is not found or cannot be loaded`, even though driver/GPU passthrough and model *construction* both succeeded. `ctranslate2` does not declare `nvidia-cublas-cu12`/`nvidia-cudnn-cu12` as dependencies and does not locate their pip-installed `.so` files on its own; the worker image now pins both packages and sets `LD_LIBRARY_PATH` to their `site-packages` lib directories.
 
 ## [0.1.0] - 2026-08-09
 
